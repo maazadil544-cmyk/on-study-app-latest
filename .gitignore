@@ -25,4 +25,4 @@ my-upload-key.jks
 .cxx
 local.properties
 .env
-gradle.properties
+
