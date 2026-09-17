@@ -1,0 +1,6 @@
+{
+  "name": "ON Study",
+  "description": "Pakistan Academic Guides & Textbooks (Class 1-12) for KPK, Punjab, Balochistan & Sindh with AssistIQ AI Study Partner, PDF reader, bookmarks, and notes",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
