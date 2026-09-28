@@ -15,11 +15,13 @@ app/build/
 .build-outputs/
 *.apk
 *.aab
+# Keystores (release upload key is tracked so GitHub Actions builds with consistent key)
 *.jks
 *.keystore
 *.keystore.base64
 debug.keystore*
-my-upload-key.jks
+!my-upload-key.jks
+!upload_certificate.pem
 /captures
 .externalNativeBuild
 .cxx

@@ -39,14 +39,22 @@ jobs:
           echo "KEY_ALIAS=${{ secrets.KEY_ALIAS || 'upload' }}" >> $GITHUB_ENV
           echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD || 'android' }}" >> $GITHUB_ENV
           echo "Using production keystore from GitHub Secrets."
-        else
-          keytool -genkey -v -keystore my-upload-key.jks -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=ON Study,O=ONStudy,C=PK"
+        elif [ -f my-upload-key.jks ]; then
           echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/my-upload-key.jks" >> $GITHUB_ENV
           echo "STORE_PASSWORD=android" >> $GITHUB_ENV
-          echo "KEY_ALIAS=androiddebugkey" >> $GITHUB_ENV
+          echo "KEY_ALIAS=upload" >> $GITHUB_ENV
           echo "KEY_PASSWORD=android" >> $GITHUB_ENV
-          echo "Generated automated release keystore."
+          echo "Using permanent my-upload-key.jks from repository."
+        else
+          echo "WARNING: Generating fallback keystore."
+          keytool -genkey -v -keystore my-upload-key.jks -storepass android -alias upload -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=ON Study,O=ONStudy,C=PK"
+          echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/my-upload-key.jks" >> $GITHUB_ENV
+          echo "STORE_PASSWORD=android" >> $GITHUB_ENV
+          echo "KEY_ALIAS=upload" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=android" >> $GITHUB_ENV
         fi
+        echo "=== Keystore Fingerprint ==="
+        keytool -list -v -keystore my-upload-key.jks -storepass android | grep -E "SHA1|SHA256|Alias" || true
 
     - name: Grant execute permission to Gradle wrapper
       run: chmod +x gradlew
@@ -62,6 +70,7 @@ jobs:
         mkdir -p release-artifacts
         cp app/build/outputs/apk/release/*.apk release-artifacts/
         cp app/build/outputs/bundle/release/*.aab release-artifacts/
+        if [ -f upload_certificate.pem ]; then cp upload_certificate.pem release-artifacts/; fi
         echo "=== Release Artifacts Generated ==="
         ls -lh release-artifacts/
 
