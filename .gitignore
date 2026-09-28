@@ -25,4 +25,6 @@ my-upload-key.jks
 .cxx
 local.properties
 .env
+.dev.env.json
+*.env.json
 

@@ -27,8 +27,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.adsterra.AdsterraBannerAd
+import com.example.adsterra.AdsterraInterstitialDialog
+import com.example.adsterra.AdsterraManager
 import com.example.data.local.BookEntity
 import com.example.data.model.BookType
 import com.example.ui.components.AppTopBar
@@ -39,6 +42,7 @@ import com.example.ui.viewmodel.StudyViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookListScreen(viewModel: StudyViewModel) {
+    val context = LocalContext.current
     val selectedProvince by viewModel.selectedProvince.collectAsStateWithLifecycle()
     val selectedClassLevel by viewModel.selectedClassLevel.collectAsStateWithLifecycle()
     val books by viewModel.currentClassBooks.collectAsStateWithLifecycle()
@@ -48,13 +52,23 @@ fun BookListScreen(viewModel: StudyViewModel) {
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     var showDetailsDialogForBook by remember { mutableStateOf<BookEntity?>(null) }
+    var showGrammarInterstitial by remember(selectedClassLevel) {
+        mutableStateOf(selectedClassLevel == 0)
+    }
+
+    // Trigger Popunder when Grammar Section opens
+    LaunchedEffect(selectedClassLevel) {
+        if (selectedClassLevel == 0) {
+            AdsterraManager.triggerPopunder(context)
+        }
+    }
 
     Scaffold(
         containerColor = Slate50,
         topBar = {
             AppTopBar(
-                title = "Class $selectedClassLevel (${selectedProvince.title})",
-                subtitle = "${selectedProvince.boardName} • ${books.size} Materials",
+                title = if (selectedClassLevel == 0) "Grammar & Composition (${selectedProvince.title})" else "Class $selectedClassLevel (${selectedProvince.title})",
+                subtitle = "${selectedProvince.boardName} • ${books.size} Books",
                 showBackButton = true,
                 onBackClick = { viewModel.navigateBack() },
                 viewModel = viewModel
@@ -165,65 +179,98 @@ fun BookListScreen(viewModel: StudyViewModel) {
                     }
                 }
 
-                // Book Type Chips (All, Textbook, Guide & Keybook, Solved Notes, Past Papers)
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp)
-                ) {
-                    item {
-                        FilterChip(
-                            selected = selectedBookType == null,
-                            onClick = { viewModel.selectedBookTypeFilter.value = null },
-                            label = { Text("All Types", fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Slate800,
-                                selectedLabelColor = Color.White,
-                                containerColor = Slate100,
-                                labelColor = Slate700
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
+                // Book Type Chips (All Types, Textbook, Guide & Keybook, etc.)
+                // Removed/hidden when in Grammar section (selectedClassLevel == 0)
+                if (selectedClassLevel != 0) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        item {
+                            FilterChip(
                                 selected = selectedBookType == null,
-                                borderColor = if (selectedBookType == null) Slate800 else Slate200
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
+                                onClick = { viewModel.selectedBookTypeFilter.value = null },
+                                label = { Text("All Types", fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Slate800,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Slate100,
+                                    labelColor = Slate700
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = selectedBookType == null,
+                                    borderColor = if (selectedBookType == null) Slate800 else Slate200
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
 
-                    items(BookType.values()) { type ->
-                        val isSelected = selectedBookType == type
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                viewModel.selectedBookTypeFilter.value = if (isSelected) null else type
-                            },
-                            label = { Text(type.displayName, fontSize = 12.sp) },
-                            leadingIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isSelected) Color.White else type.badgeColor)
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = type.badgeColor,
-                                selectedLabelColor = Color.White,
-                                containerColor = Slate100,
-                                labelColor = Slate700
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
+                        items(BookType.values()) { type ->
+                            val isSelected = selectedBookType == type
+                            FilterChip(
                                 selected = isSelected,
-                                borderColor = if (isSelected) type.badgeColor else Slate200
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                                onClick = {
+                                    viewModel.selectedBookTypeFilter.value = if (isSelected) null else type
+                                },
+                                label = { Text(type.displayName, fontSize = 12.sp) },
+                                leadingIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) Color.White else type.badgeColor)
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = type.badgeColor,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Slate100,
+                                    labelColor = Slate700
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = if (isSelected) type.badgeColor else Slate200
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
                     }
                 }
             }
 
             HorizontalDivider(color = Slate200)
+
+            // Prominent Top Banner Ad in Grammar section
+            if (selectedClassLevel == 0) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                    shadowElevation = 1.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "SPONSORED ANNOUNCEMENT",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate400,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                        AdsterraBannerAd()
+                    }
+                }
+            }
 
             // Book List
             if (books.isEmpty()) {
@@ -269,6 +316,32 @@ fun BookListScreen(viewModel: StudyViewModel) {
                         ) {
                             Text("Reset Filters", fontWeight = FontWeight.Bold)
                         }
+
+                        if (selectedClassLevel == 0) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "SPONSORED",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Slate400,
+                                        letterSpacing = 1.sp
+                                    )
+                                    AdsterraBannerAd()
+                                }
+                            }
+                        }
                     }
                 }
             } else {
@@ -279,15 +352,51 @@ fun BookListScreen(viewModel: StudyViewModel) {
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(top = 14.dp, bottom = 32.dp)
                 ) {
-                    items(books, key = { it.id }) { book ->
+                    itemsIndexed(books, key = { _, book -> book.id }) { index, book ->
                         BookCardItem(
                             book = book,
                             provinceColor = selectedProvince.primaryColor,
-                            onOpenReader = { viewModel.openReader(book) },
-                            onDownload = { viewModel.downloadBook(book) },
+                            onOpenReader = {
+                                if (selectedClassLevel == 0) AdsterraManager.triggerPopunder(context)
+                                viewModel.openReader(book)
+                            },
+                            onDownload = {
+                                if (selectedClassLevel == 0) AdsterraManager.triggerPopunder(context)
+                                viewModel.downloadBook(book)
+                            },
                             onToggleBookmark = { viewModel.toggleBookmark(book) },
                             onShowDetails = { showDetailsDialogForBook = book }
                         )
+
+                        // In Grammar section: insert in-feed banner ads every 2 books
+                        if (selectedClassLevel == 0 && (index + 1) % 2 == 0) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                                shadowElevation = 1.dp
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "SPONSORED EDUCATION PARTNER",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Slate400,
+                                        letterSpacing = 1.sp,
+                                        modifier = Modifier.padding(bottom = 2.dp)
+                                    )
+                                    AdsterraBannerAd()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -307,6 +416,15 @@ fun BookListScreen(viewModel: StudyViewModel) {
                 showDetailsDialogForBook = null
                 viewModel.downloadBook(book)
             }
+        )
+    }
+
+    // Interstitial Ad Dialog for Grammar section
+    if (showGrammarInterstitial) {
+        AdsterraInterstitialDialog(
+            title = "Grammar & Composition (${selectedProvince.title})",
+            subtitle = "Access solved grammar books, composition guides and key notes",
+            onDismiss = { showGrammarInterstitial = false }
         )
     }
 }
@@ -632,7 +750,7 @@ fun BookDetailsDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Subject: ${book.subject} • Class ${book.classLevel}",
+                    text = "Subject: ${book.subject} • ${if (book.classLevel == 0) "Grammar & General" else "Class ${book.classLevel}"}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Slate700
                 )
@@ -693,6 +811,32 @@ fun BookDetailsDialog(
                         ),
                         modifier = Modifier.padding(10.dp)
                     )
+                }
+
+                if (book.classLevel == 0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        color = Slate50,
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "SPONSORED EDUCATION PARTNER",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate400,
+                                letterSpacing = 1.sp
+                            )
+                            AdsterraBannerAd()
+                        }
+                    }
                 }
             }
         },

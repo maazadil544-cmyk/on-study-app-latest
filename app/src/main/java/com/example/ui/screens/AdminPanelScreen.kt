@@ -649,7 +649,7 @@ fun AdminBooksListTab(
                                     )
                                 }
                                 Text(
-                                    text = "Class ${book.classLevel} • ${book.subject} • ${book.bookType}",
+                                    text = "${if (book.classLevel == 0) "Grammar / General" else "Class ${book.classLevel}"} • ${book.subject} • ${book.bookType}",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Emerald800,
                                         fontSize = 11.sp,
@@ -719,6 +719,7 @@ fun AdminAddBookTab(
     val context = LocalContext.current
 
     val commonSubjects = listOf(
+        "English Grammar", "Urdu Grammar", "Grammar & Composition",
         "Physics", "Mathematics", "Chemistry", "Biology", "Computer Science",
         "English", "Urdu", "Islamiat", "Pak Studies", "General Science"
     )
@@ -749,12 +750,31 @@ fun AdminAddBookTab(
             }
         }
 
-        // Quick Fill Preset Button
+        // Quick Fill Preset Buttons
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
             ) {
+                OutlinedButton(
+                    onClick = {
+                        title = "English Grammar & Solved Composition Guide"
+                        subject = "English Grammar"
+                        selectedClass = 0
+                        bookType = "GUIDE"
+                        fileLink = "https://drive.google.com/file/d/1Oo5pIMwXYg6KvfoGlumpxxBrCbpmK6Bl/view?usp=drive_link"
+                        sampleContent = "[ENGLISH GRAMMAR & COMPOSITION]\n1. Parts of Speech & Sentence Structure\n2. Tenses, Active/Passive Voice, Direct/Indirect\n3. Solved Board Essays, Letters & Idioms."
+                        validationError = null
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Spellcheck, contentDescription = null, tint = Emerald600, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Pre-fill Grammar", color = Emerald700, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
                 OutlinedButton(
                     onClick = {
                         title = "Chemistry Class 10 Solved Notes & Guide"
@@ -768,11 +788,12 @@ fun AdminAddBookTab(
                         validationError = null
                     },
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = Emerald600, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Pre-fill Sample Guide Data", color = Emerald700, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Pre-fill Guide", color = Emerald700, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -833,14 +854,41 @@ fun AdminAddBookTab(
             }
         }
 
-        // Class Picker (Classes 1 to 12)
+        // Class Picker (Classes 1 to 12 & Grammar Category)
         item {
-            Text("Select Class (1 to 12):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Slate900))
+            Text("Select Class or Category:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Slate900))
             Spacer(modifier = Modifier.height(4.dp))
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Grammar / General Category Chip (Class 0)
+                item {
+                    val isGrammar = selectedClass == 0
+                    FilterChip(
+                        selected = isGrammar,
+                        onClick = {
+                            selectedClass = 0
+                            if (!subject.contains("Grammar", ignoreCase = true)) {
+                                subject = "English Grammar"
+                            }
+                        },
+                        label = { Text("Grammar / General (0)", fontWeight = if (isGrammar) FontWeight.Bold else FontWeight.Normal) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Emerald600,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                            labelColor = Slate800
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isGrammar,
+                            borderColor = if (isGrammar) Emerald600 else Slate300
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+
                 items(12) { index ->
                     val classNum = index + 1
                     val isSelected = selectedClass == classNum
@@ -1636,7 +1684,7 @@ fun AdminAnalyticsTab(books: List<BookEntity>) {
                             maxLines = 1
                         )
                         Text(
-                            text = "${book.provinceCode.uppercase()} • Class ${book.classLevel} • ${book.subject}",
+                            text = "${book.provinceCode.uppercase()} • ${if (book.classLevel == 0) "Grammar / General" else "Class ${book.classLevel}"} • ${book.subject}",
                             style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
                         )
                     }

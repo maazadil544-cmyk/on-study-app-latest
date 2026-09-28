@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -276,11 +277,17 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                         }
                     }
 
-                    items(filteredBooks, key = { it.id }) { book ->
+                    itemsIndexed(filteredBooks, key = { _, book -> book.id }) { index, book ->
                         GeneralBookCard(
                             book = book,
-                            onOpen = { viewModel.openReader(book) },
-                            onDownload = { viewModel.downloadBook(book) },
+                            onOpen = {
+                                AdsterraManager.triggerPopunder(context)
+                                viewModel.openReader(book)
+                            },
+                            onDownload = {
+                                AdsterraManager.triggerPopunder(context)
+                                viewModel.downloadBook(book)
+                            },
                             onDetails = { selectedBookForDialog = book },
                             onExternalLink = {
                                 try {
@@ -291,6 +298,36 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                                 }
                             }
                         )
+
+                        // In-feed Banner Ad every 2 items
+                        if ((index + 1) % 2 == 0) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                                shadowElevation = 1.dp
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "SPONSORED EDUCATION PARTNER",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Slate400,
+                                        letterSpacing = 1.sp,
+                                        modifier = Modifier.padding(bottom = 2.dp)
+                                    )
+                                    AdsterraBannerAd()
+                                }
+                            }
+                        }
                     }
                 }
             }

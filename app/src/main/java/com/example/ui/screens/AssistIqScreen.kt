@@ -67,6 +67,11 @@ fun AssistIqScreen(viewModel: StudyViewModel) {
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
+    // Auto-refresh Gemini API key from Firebase Cloud when opening AssistIQ
+    LaunchedEffect(Unit) {
+        viewModel.refreshGeminiApiKeyFromCloud()
+    }
+
     // Handle any prompt passed during navigation (e.g. from Reader or Home card)
     LaunchedEffect(pendingPrompt) {
         pendingPrompt?.let { prompt ->
@@ -407,6 +412,13 @@ fun AssistIqScreen(viewModel: StudyViewModel) {
                                 )
                                 Toast.makeText(context, "Saved to Study Notes!", Toast.LENGTH_SHORT).show()
                             }
+                        },
+                        onRetry = {
+                            viewModel.refreshGeminiApiKeyFromCloud()
+                            val lastUserMsg = messages.lastOrNull { it.isUser }
+                            if (lastUserMsg != null) {
+                                viewModel.sendChatMessage(lastUserMsg.text)
+                            }
                         }
                     )
                 }
@@ -642,7 +654,8 @@ fun AssistIqQuickBadge(
 fun ChatMessageItem(
     message: ChatMessageEntity,
     onCopyText: (String) -> Unit,
-    onSaveAsNote: (String) -> Unit
+    onSaveAsNote: (String) -> Unit,
+    onRetry: () -> Unit = {}
 ) {
     val isUser = message.isUser
     val timeFormat = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
@@ -726,7 +739,7 @@ fun ChatMessageItem(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Utility footer for AI messages (Copy & Save as Note)
+                    // Utility footer for AI messages (Copy & Save as Note, or Retry on Error)
                     if (!isUser && message.status != "ERROR") {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -758,6 +771,20 @@ fun ChatMessageItem(
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
+                        }
+                    } else if (!isUser && message.status == "ERROR") {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedButton(
+                            onClick = onRetry,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Retry with Cloud Key (دوبارہ کوشش کریں)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     } else if (isUser) {
                         Text(

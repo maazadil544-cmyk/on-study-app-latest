@@ -11,7 +11,58 @@ object SampleDataProvider {
         // 1. Add General Reference Books (Grammar, Health Care, GK, Science, Computer, Urdu Qawaid)
         books.addAll(getGeneralBooks())
 
-        // 2. Add "Test" book for Class 1 to 12 across all provinces
+        // 2. Add Provincial Grammar & Composition books for each province
+        val provincialGrammarBooks = listOf(
+            Triple("punjab", "Punjab Board English Grammar & Composition", "Urdu Qawaid-o-Insha (Punjab Board)"),
+            Triple("kpk", "KPK Board English Grammar & Composition", "KPK Urdu Qawaid Aur Mazameen Guide"),
+            Triple("sindh", "Sindh Board English Grammar Handbook", "Sindh Urdu Qawaid & Language Guide"),
+            Triple("balochistan", "Balochistan Board English Grammar & Composition", "Balochistan Urdu Qawaid-o-Insha Guide")
+        )
+
+        for ((pCode, engTitle, urduTitle) in provincialGrammarBooks) {
+            books.add(
+                BookEntity(
+                    title = engTitle,
+                    provinceCode = pCode,
+                    classLevel = 0,
+                    subject = "English Grammar",
+                    bookType = "GUIDE",
+                    fileLink = googleDriveLink,
+                    coverImage = driveCoverImage,
+                    fileSize = "6.5 MB",
+                    uploadDate = "2026-09",
+                    downloadCount = 1850,
+                    totalPages = 72,
+                    sampleContent = """
+                        $engTitle
+                        Comprehensive Grammar, Tenses, Rules, Letter & Essay Writing Guide.
+                        Province: ${pCode.uppercase()} Curriculum & Textbook Board.
+                    """.trimIndent()
+                )
+            )
+            books.add(
+                BookEntity(
+                    title = urduTitle,
+                    provinceCode = pCode,
+                    classLevel = 0,
+                    subject = "Urdu Grammar",
+                    bookType = "GUIDE",
+                    fileLink = googleDriveLink,
+                    coverImage = driveCoverImage,
+                    fileSize = "5.2 MB",
+                    uploadDate = "2026-09",
+                    downloadCount = 1420,
+                    totalPages = 58,
+                    sampleContent = """
+                        $urduTitle
+                        اردو قواعد و انشاء، گرائمر، خطوط، مضامین اور حل شدہ مشقیں
+                        Province: ${pCode.uppercase()} Textbook Board.
+                    """.trimIndent()
+                )
+            )
+        }
+
+        // 3. Add "Test" book for Class 1 to 12 across all provinces
         for (prov in provinces) {
             for (lvl in 1..12) {
                 books.add(

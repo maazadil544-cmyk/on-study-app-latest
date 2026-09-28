@@ -102,6 +102,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.initializeDataIfNeeded()
             updateStorageUsage()
+            repository.refreshRemoteGeminiApiKey()
             if (com.example.data.util.NetworkUtils.isOnline(application)) {
                 syncWithFirebase(silent = true)
             }
@@ -177,10 +178,21 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         filterCriteria
     ) { books, filter ->
         books.filter { book ->
-            val matchProvince = book.provinceCode.equals(filter.province.code, ignoreCase = true)
-            val matchClass = book.classLevel == filter.classLevel
+            val matchProvince = if (filter.classLevel == 0) {
+                book.provinceCode.equals(filter.province.code, ignoreCase = true) ||
+                (book.provinceCode.equals("general", ignoreCase = true) && (book.subject.contains("Grammar", ignoreCase = true) || book.title.contains("Grammar", ignoreCase = true)))
+            } else {
+                book.provinceCode.equals(filter.province.code, ignoreCase = true)
+            }
+
+            val matchClass = if (filter.classLevel == 0) {
+                book.classLevel == 0 || book.subject.contains("Grammar", ignoreCase = true) || book.title.contains("Grammar", ignoreCase = true)
+            } else {
+                book.classLevel == filter.classLevel
+            }
+
             val matchSubject = filter.subject == null || filter.subject == "All" || book.subject.equals(filter.subject, ignoreCase = true)
-            val matchType = filter.bookType == null || book.bookType.equals(filter.bookType.name, ignoreCase = true)
+            val matchType = if (filter.classLevel == 0) true else (filter.bookType == null || book.bookType.equals(filter.bookType.name, ignoreCase = true))
             val matchQuery = filter.query.isBlank() || book.title.contains(filter.query, ignoreCase = true) || book.subject.contains(filter.query, ignoreCase = true)
 
             matchProvince && matchClass && matchSubject && matchType && matchQuery
@@ -189,10 +201,17 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     // Unique subjects list for filter chips
     val availableSubjects: StateFlow<List<String>> = combine(allBooks, selectedProvince, selectedClassLevel) { books, prov, cls ->
-        val subjects = books.filter { it.provinceCode.equals(prov.code, ignoreCase = true) && it.classLevel == cls }
-            .map { it.subject }
-            .distinct()
-            .sorted()
+        val subjects = if (cls == 0) {
+            books.filter {
+                (it.provinceCode.equals(prov.code, ignoreCase = true) || it.provinceCode.equals("general", ignoreCase = true)) &&
+                (it.classLevel == 0 || it.subject.contains("Grammar", ignoreCase = true) || it.title.contains("Grammar", ignoreCase = true))
+            }.map { it.subject }.distinct().sorted()
+        } else {
+            books.filter { it.provinceCode.equals(prov.code, ignoreCase = true) && it.classLevel == cls }
+                .map { it.subject }
+                .distinct()
+                .sorted()
+        }
         listOf("All") + subjects
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("All"))
 
@@ -232,6 +251,23 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         selectedBookTypeFilter.value = null
         searchQuery.value = ""
         navigateTo(Screen.BOOK_LIST)
+    }
+
+    fun selectGrammarCategory() {
+        selectedClassLevel.value = 0
+        selectedSubjectFilter.value = "All"
+        selectedBookTypeFilter.value = null
+        searchQuery.value = ""
+        navigateTo(Screen.BOOK_LIST)
+    }
+
+    fun refreshGeminiApiKeyFromCloud() {
+        viewModelScope.launch {
+            val key = repository.refreshRemoteGeminiApiKey()
+            if (!key.isNullOrBlank()) {
+                currentGeminiApiKey.value = key
+            }
+        }
     }
 
     fun openReader(book: BookEntity, page: Int = 1) {

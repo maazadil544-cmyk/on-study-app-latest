@@ -62,8 +62,22 @@ class StudyRepository(
 
         // Auto sync with Firebase if internet is active
         if (com.example.data.util.NetworkUtils.isOnline(context)) {
+            refreshRemoteGeminiApiKey()
             syncWithFirebase()
         }
+    }
+
+    suspend fun refreshRemoteGeminiApiKey(): String? = withContext(Dispatchers.IO) {
+        try {
+            val remoteKey = firebaseManager.fetchRemoteGeminiApiKey()
+            if (!remoteKey.isNullOrBlank()) {
+                com.example.data.remote.AssistIqService.setDynamicApiKey(remoteKey)
+                return@withContext remoteKey
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("StudyRepository", "Error refreshing Gemini API key from Firebase: ${e.message}")
+        }
+        null
     }
 
     /**
@@ -562,7 +576,20 @@ class StudyRepository(
             )
         }
 
-        val result = com.example.data.remote.AssistIqService.sendMessage(turns, userText)
+        var result = com.example.data.remote.AssistIqService.sendMessage(turns, userText)
+
+        // If the request fails with an authentication / invalid key error,
+        // automatically fetch the latest active key from Firebase Cloud and retry!
+        if (result.isFailure && com.example.data.remote.AssistIqService.isAuthError(result.exceptionOrNull())) {
+            android.util.Log.w("StudyRepository", "AssistIQ authentication failed. Auto-fetching fresh key from Firebase Cloud and retrying...")
+            val freshKey = firebaseManager.fetchRemoteGeminiApiKey()
+            if (!freshKey.isNullOrBlank()) {
+                com.example.data.remote.AssistIqService.setDynamicApiKey(freshKey)
+                // Retry once with the newly fetched cloud key
+                result = com.example.data.remote.AssistIqService.sendMessage(turns, userText)
+            }
+        }
+
         if (result.isSuccess) {
             val replyText = result.getOrNull().orEmpty()
             dao.insertChatMessage(
@@ -576,7 +603,7 @@ class StudyRepository(
             val errorMsg = result.exceptionOrNull()?.message ?: "Network error"
             dao.insertChatMessage(
                 ChatMessageEntity(
-                    text = "⚠️ AssistIQ response nahi la saka: $errorMsg\n\nBaraye meharbani connection check karke dobara koshish karein.",
+                    text = "⚠️ AssistIQ response nahi la saka: $errorMsg\n\nBaraye meharbani connection check karein ya dobara koshish karein.",
                     isUser = false,
                     status = "ERROR"
                 )

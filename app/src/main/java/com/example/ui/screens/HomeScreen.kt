@@ -676,7 +676,7 @@ fun GeometricProvinceCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "$bookCount Guides",
+                        text = "$bookCount Books",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = province.textColor,
                             fontWeight = FontWeight.SemiBold,

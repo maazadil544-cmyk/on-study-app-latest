@@ -36,48 +36,77 @@ class FirebaseRealtimeDbManager(private val context: Context) {
 
     fun getStoredGeminiApiKey(): String? {
         val key = prefs.getString(KEY_GEMINI_KEY, null)?.trim()
-        return if (!key.isNullOrBlank()) key else null
+        return if (!key.isNullOrBlank() && !key.contains("KOwyNVPN9oYBE8")) key else null
     }
 
     suspend fun fetchRemoteGeminiApiKey(): String? = withContext(Dispatchers.IO) {
-        val url = "$databaseUrl/config/gemini_api_key.json"
-        try {
-            val request = Request.Builder().url(url).get().build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val body = response.body?.string()?.trim() ?: return@withContext null
-                if (body.isBlank() || body == "null") return@withContext null
-                val cleanKey = if (body.startsWith("\"") && body.endsWith("\"") && body.length >= 2) {
-                    body.substring(1, body.length - 1)
-                } else {
-                    body
-                }.trim()
-                if (cleanKey.isNotBlank()) {
-                    prefs.edit().putString(KEY_GEMINI_KEY, cleanKey).apply()
-                    cleanKey
-                } else null
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed fetching remote Gemini API key: ${e.message}")
-            null
+        val candidateUrls = mutableListOf(
+            "$databaseUrl/config/gemini_api_key.json",
+            "$databaseUrl/gemini_api_key.json"
+        )
+        if (cleanUrl(databaseUrl) != cleanUrl(DEFAULT_DATABASE_URL)) {
+            candidateUrls.add("$DEFAULT_DATABASE_URL/config/gemini_api_key.json")
+            candidateUrls.add("$DEFAULT_DATABASE_URL/gemini_api_key.json")
         }
+
+        for (url in candidateUrls) {
+            try {
+                val request = Request.Builder().url(url).get().build()
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()?.trim()
+                        if (!body.isNullOrBlank() && body != "null") {
+                            val cleanKey = if (body.startsWith("\"") && body.endsWith("\"") && body.length >= 2) {
+                                body.substring(1, body.length - 1)
+                            } else {
+                                body
+                            }.trim()
+                            if (cleanKey.isNotBlank() && !cleanKey.contains("KOwyNVPN9oYBE8")) {
+                                prefs.edit().putString(KEY_GEMINI_KEY, cleanKey).apply()
+                                AssistIqService.setDynamicApiKey(cleanKey)
+                                Log.i(TAG, "Successfully fetched and applied active Gemini key from $url")
+                                return@withContext cleanKey
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed fetching Gemini key from $url: ${e.message}")
+            }
+        }
+        null
     }
 
     suspend fun saveRemoteGeminiApiKey(key: String): Boolean = withContext(Dispatchers.IO) {
         val clean = key.trim()
-        val url = "$databaseUrl/config/gemini_api_key.json"
-        try {
-            val quoted = JSONObject.quote(clean)
-            val body = quoted.toRequestBody(JSON_MEDIA_TYPE)
-            val request = Request.Builder().url(url).put(body).build()
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    prefs.edit().putString(KEY_GEMINI_KEY, clean).apply()
-                    true
-                } else false
+        if (clean.isBlank()) return@withContext false
+
+        var successCount = 0
+        val targetUrls = listOf(
+            "$databaseUrl/config/gemini_api_key.json",
+            "$databaseUrl/gemini_api_key.json"
+        )
+
+        for (url in targetUrls) {
+            try {
+                val quoted = JSONObject.quote(clean)
+                val body = quoted.toRequestBody(JSON_MEDIA_TYPE)
+                val request = Request.Builder().url(url).put(body).build()
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        successCount++
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving remote Gemini API key to $url", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving remote Gemini API key", e)
+        }
+
+        if (successCount > 0) {
+            prefs.edit().putString(KEY_GEMINI_KEY, clean).apply()
+            AssistIqService.setDynamicApiKey(clean)
+            true
+        } else {
             false
         }
     }

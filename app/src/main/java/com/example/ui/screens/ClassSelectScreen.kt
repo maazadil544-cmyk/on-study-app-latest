@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.adsterra.AdsterraBannerAd
+import com.example.adsterra.AdsterraManager
 import com.example.data.model.Province
 import com.example.ui.components.AppTopBar
 import com.example.ui.theme.*
@@ -44,6 +46,7 @@ data class GradeSection(
 
 @Composable
 fun ClassSelectScreen(viewModel: StudyViewModel) {
+    val context = LocalContext.current
     val selectedProvince by viewModel.selectedProvince.collectAsStateWithLifecycle()
     val allBooks by viewModel.allBooks.collectAsStateWithLifecycle()
 
@@ -175,12 +178,142 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
             // Quick instruction
             item {
                 Text(
-                    text = "Choose your Grade / Class level:",
+                    text = "Choose your Category / Class level:",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Slate900
                     )
                 )
+            }
+
+            // Dedicated Grammar & General Category Card for this Province
+            item {
+                val grammarBooksCount = allBooks.count {
+                    (it.provinceCode.equals(selectedProvince.code, ignoreCase = true) || it.provinceCode.equals("general", ignoreCase = true)) &&
+                    (it.classLevel == 0 || it.subject.contains("Grammar", ignoreCase = true) || it.title.contains("Grammar", ignoreCase = true))
+                }
+
+                Surface(
+                    onClick = {
+                        AdsterraManager.triggerPopunder(context)
+                        viewModel.selectGrammarCategory()
+                    },
+                    shape = RoundedCornerShape(22.dp),
+                    color = Color.White,
+                    shadowElevation = 3.dp,
+                    border = androidx.compose.foundation.BorderStroke(2.dp, selectedProvince.borderColor),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("province_grammar_category_card")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(selectedProvince.containerColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AutoStories,
+                                contentDescription = "Grammar & Guides Category",
+                                tint = selectedProvince.primaryColor,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Grammar & Composition",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = Slate900
+                                    )
+                                )
+                                Surface(
+                                    color = selectedProvince.primaryColor.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "گرائمر کتب",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = selectedProvince.primaryColor,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "English & Urdu Grammar, Essays, Tenses & Solved Guides",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Slate600,
+                                    fontSize = 12.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (grammarBooksCount > 0) "$grammarBooksCount Books Available" else "All Classes Grammar",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = selectedProvince.primaryColor,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Open Grammar Category",
+                            tint = selectedProvince.primaryColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+
+            // Featured Sponsored Banner Ad right under Grammar Category Card
+            item {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                    shadowElevation = 1.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "SPONSORED EDUCATION PARTNER",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate400,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                        AdsterraBannerAd()
+                    }
+                }
             }
 
             // Grade Sections
@@ -313,7 +446,7 @@ fun ClassCardsGrid(
                                     )
                                 )
                                 Text(
-                                    text = if (booksForClass > 0) "$booksForClass Guides" else "Available",
+                                    text = if (booksForClass > 0) "$booksForClass Books" else "Available",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Slate500,
                                         fontSize = 11.sp
