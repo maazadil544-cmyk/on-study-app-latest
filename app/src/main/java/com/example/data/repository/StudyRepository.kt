@@ -47,6 +47,12 @@ class StudyRepository(
                 dao.insertBooks(generalBooks)
             }
         }
+
+        // Ensure all existing KPK books have publisher "KPTB" as requested
+        dao.updateKpkBooksPublisher("KPTB")
+        dao.updatePunjabBooksPublisher("PTCB")
+        dao.updateSindhBooksPublisher("STBB")
+        dao.updateBalochistanBooksPublisher("BTBB")
         val currentNews = dao.getAllNewsSync()
         if (currentNews.isEmpty()) {
             val defaultNews = SampleDataProvider.getInitialNews()

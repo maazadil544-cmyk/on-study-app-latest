@@ -151,6 +151,7 @@ fun HomeScreen(viewModel: StudyViewModel) {
                 val searchResults = allBooks.filter {
                     it.title.contains(searchQuery, ignoreCase = true) ||
                             it.subject.contains(searchQuery, ignoreCase = true) ||
+                            it.publisher.contains(searchQuery, ignoreCase = true) ||
                             it.provinceCode.contains(searchQuery, ignoreCase = true)
                 }
 
@@ -939,9 +940,22 @@ fun QuickBookItemCard(
                     ),
                     maxLines = 1
                 )
+                if (book.publisher.isNotBlank()) {
+                    Text(
+                        text = "Publisher: ${book.publisher}",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Slate600,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+                val provShortcut = Province.fromCode(book.provinceCode).boardShortcut
                 Text(
-                    text = "${book.provinceCode.uppercase()} • Class ${book.classLevel} • ${book.fileSize}",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
+                    text = "$provShortcut • Class ${book.classLevel} • ${book.fileSize}",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 10.5.sp)
                 )
             }
             if (book.isDownloaded) {
@@ -1161,20 +1175,38 @@ fun FeaturedGeneralBookCard(
                     elevation = 2.dp
                 )
 
-                Surface(
-                    color = containerBg,
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = book.subject.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = themeColor,
-                            fontSize = 9.sp,
-                            letterSpacing = 0.5.sp
-                        ),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                val provShortcut = Province.fromCode(book.provinceCode).boardShortcut
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Surface(
+                        color = containerBg,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = provShortcut,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = themeColor,
+                                fontSize = 9.sp,
+                                letterSpacing = 0.5.sp
+                            ),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                    Surface(
+                        color = containerBg,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = book.subject.uppercase(),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = themeColor,
+                                fontSize = 9.sp,
+                                letterSpacing = 0.5.sp
+                            ),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
@@ -1193,7 +1225,21 @@ fun FeaturedGeneralBookCard(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            if (book.publisher.isNotBlank()) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "Publisher: ${book.publisher}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Slate600,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
                 text = "${book.totalPages} Pages • ${book.fileSize}",

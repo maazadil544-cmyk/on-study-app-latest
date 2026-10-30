@@ -449,7 +449,40 @@ fun LoginScreen(viewModel: StudyViewModel) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Quick Admin Login
+                    OutlinedButton(
+                        onClick = {
+                            username = "onstudy13"
+                            email = "onstudy13@gmail.com"
+                            password = "onstudy13.1311"
+                            performLogin()
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald300),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_quick_login_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AdminPanelSettings,
+                            contentDescription = null,
+                            tint = Emerald700,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Admin Access (onstudy13)",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Emerald800,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Quick Guest / Instant Student Access
                     TextButton(
@@ -464,7 +497,7 @@ fun LoginScreen(viewModel: StudyViewModel) {
                         Text(
                             text = "Explore as Student Guest",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Emerald700,
+                                color = Slate600,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp
                             )

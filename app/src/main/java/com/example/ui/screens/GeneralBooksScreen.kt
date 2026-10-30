@@ -467,7 +467,32 @@ fun GeneralBookCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    if (book.publisher.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Business,
+                                contentDescription = null,
+                                tint = themeColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Publisher: ${book.publisher}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Slate600,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(3.dp))
 
                     Text(
                         text = "${book.totalPages} Pages • ${book.fileSize} • ${book.downloadCount}+ Reads",
@@ -636,6 +661,15 @@ fun GeneralBookDetailDialog(
                 ) {
                     Text("File Size:", color = Slate500, fontSize = 13.sp)
                     Text(book.fileSize, fontWeight = FontWeight.SemiBold, color = Slate800, fontSize = 13.sp)
+                }
+                if (book.publisher.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Publisher:", color = Slate500, fontSize = 13.sp)
+                        Text(book.publisher, fontWeight = FontWeight.SemiBold, color = Slate800, fontSize = 13.sp)
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),

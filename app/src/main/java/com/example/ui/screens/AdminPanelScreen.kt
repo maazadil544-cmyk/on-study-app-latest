@@ -134,7 +134,7 @@ fun AdminPanelScreen(viewModel: StudyViewModel) {
                         onClick = { selectedAdminTab = 2 },
                         text = {
                             Text(
-                                "News (${allNews.size})",
+                                "Notifications (${allNews.size})",
                                 fontSize = 12.sp,
                                 fontWeight = if (selectedAdminTab == 2) FontWeight.Bold else FontWeight.Medium,
                                 color = if (selectedAdminTab == 2) Emerald700 else Slate600
@@ -321,17 +321,17 @@ fun AdminLoginView(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Email Field with High Contrast Colors
+                    // Email / Username Field with High Contrast Colors
                     OutlinedTextField(
                         value = email,
                         onValueChange = {
                             email = it
                             errorMessage = null
                         },
-                        label = { Text("Admin Email", color = Slate700) },
-                        placeholder = { Text("onstudy13.1311@gmail.com", color = Slate400) },
+                        label = { Text("Admin Username or Email", color = Slate700) },
+                        placeholder = { Text("onstudy13 or onstudy13@gmail.com", color = Slate400) },
                         leadingIcon = {
-                            Icon(Icons.Default.Email, contentDescription = "Email", tint = Emerald600)
+                            Icon(Icons.Default.Person, contentDescription = "Username or Email", tint = Emerald600)
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
@@ -408,7 +408,7 @@ fun AdminLoginView(
                         onClick = {
                             val success = viewModel.loginAdmin(email, password)
                             if (!success) {
-                                errorMessage = "Invalid Email or Password. Please check credentials."
+                                errorMessage = "Invalid Username/Email or Password. Please check credentials."
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
@@ -431,7 +431,7 @@ fun AdminLoginView(
                     // Quick Fill Button for testing
                     OutlinedButton(
                         onClick = {
-                            email = "onstudy13.1311@gmail.com"
+                            email = "onstudy13@gmail.com"
                             password = "onstudy13.1311"
                             errorMessage = null
                         },
@@ -441,7 +441,7 @@ fun AdminLoginView(
                     ) {
                         Icon(Icons.Default.Key, contentDescription = null, tint = Slate600, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Auto-Fill Credentials", color = Slate700, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Auto-Fill Credentials (onstudy13)", color = Slate700, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -659,6 +659,16 @@ fun AdminBooksListTab(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
+                                text = "Publisher: ${book.publisher}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Slate700,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(1.dp))
+                            Text(
                                 text = "Link: ${book.fileLink}",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Slate500,
@@ -709,6 +719,7 @@ fun AdminAddBookTab(
     var selectedClass by remember { mutableStateOf(initialBook?.classLevel ?: 10) }
     var subject by remember { mutableStateOf(initialBook?.subject ?: "Physics") }
     var bookType by remember { mutableStateOf(initialBook?.bookType ?: "GUIDE") }
+    var publisher by remember { mutableStateOf(initialBook?.publisher ?: "KPTB") }
     var fileLink by remember { mutableStateOf(initialBook?.fileLink ?: "") }
     var fileSize by remember { mutableStateOf(initialBook?.fileSize ?: "18.5 MB") }
     var sampleContent by remember { mutableStateOf(initialBook?.sampleContent ?: "") }
@@ -722,6 +733,14 @@ fun AdminAddBookTab(
         "English Grammar", "Urdu Grammar", "Grammar & Composition",
         "Physics", "Mathematics", "Chemistry", "Biology", "Computer Science",
         "English", "Urdu", "Islamiat", "Pak Studies", "General Science"
+    )
+
+    val publisherOptions = listOf(
+        Pair("KPTB", "KPK (KPTB)"),
+        Pair("PTCB", "Punjab (PTCB)"),
+        Pair("STBB", "Sindh (STBB)"),
+        Pair("BTBB", "Balochistan (BTBB)"),
+        Pair("Custom", "Custom")
     )
 
     LazyColumn(
@@ -743,7 +762,7 @@ fun AdminAddBookTab(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Slate900)
                     )
                     Text(
-                        text = "Enter book details and paste your Mediafire, Google Drive, or Direct PDF link for students to download.",
+                        text = "Enter book details, select publisher and paste your Mediafire, Google Drive, or Direct PDF link for students to download.",
                         style = MaterialTheme.typography.bodySmall.copy(color = Slate600)
                     )
                 }
@@ -762,6 +781,7 @@ fun AdminAddBookTab(
                         subject = "English Grammar"
                         selectedClass = 0
                         bookType = "GUIDE"
+                        publisher = "PTCB"
                         fileLink = "https://drive.google.com/file/d/1Oo5pIMwXYg6KvfoGlumpxxBrCbpmK6Bl/view?usp=drive_link"
                         sampleContent = "[ENGLISH GRAMMAR & COMPOSITION]\n1. Parts of Speech & Sentence Structure\n2. Tenses, Active/Passive Voice, Direct/Indirect\n3. Solved Board Essays, Letters & Idioms."
                         validationError = null
@@ -782,6 +802,7 @@ fun AdminAddBookTab(
                         selectedClass = 10
                         subject = "Chemistry"
                         bookType = "GUIDE"
+                        publisher = "KPTB"
                         fileLink = "https://www.mediafire.com/file/sample_kpk_chem_10.pdf/download"
                         fileSize = "22.4 MB"
                         sampleContent = "[CHAPTER 1: CHEMICAL EQUILIBRIUM]\nKey Concepts & Solved Short Questions\n1. Reversible Reactions and Equilibrium\n2. Law of Mass Action\n3. Equilibrium Constant Expression (Kc)\n4. Solved Long Questions & Numerical Problems for Class 10."
@@ -835,7 +856,16 @@ fun AdminAddBookTab(
                     val isSelected = selectedProvince.equals(prov.code, ignoreCase = true)
                     FilterChip(
                         selected = isSelected,
-                        onClick = { selectedProvince = prov.code },
+                        onClick = {
+                            selectedProvince = prov.code
+                            publisher = when (prov.code.lowercase()) {
+                                "kpk" -> "KPTB"
+                                "punjab" -> "PTCB"
+                                "sindh" -> "STBB"
+                                "balochistan" -> "BTBB"
+                                else -> "KPTB"
+                            }
+                        },
                         label = { Text(prov.title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Emerald600,
@@ -991,6 +1021,68 @@ fun AdminAddBookTab(
                     )
                 }
             }
+        }
+
+        // Publisher Selection
+        item {
+            Text("Publisher:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Slate900))
+            Spacer(modifier = Modifier.height(4.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(publisherOptions) { (code, label) ->
+                    val isSelected = if (code == "Custom") {
+                        !listOf("KPTB", "PTCB", "STBB", "BTBB").contains(publisher)
+                    } else {
+                        publisher.equals(code, ignoreCase = true)
+                    }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            if (code == "Custom") {
+                                if (listOf("KPTB", "PTCB", "STBB", "BTBB").contains(publisher)) {
+                                    publisher = ""
+                                }
+                            } else {
+                                publisher = code
+                            }
+                        },
+                        label = { Text(label, fontSize = 11.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Emerald600,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                            labelColor = Slate800
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = if (isSelected) Emerald600 else Slate300
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedTextField(
+                value = publisher,
+                onValueChange = { publisher = it },
+                label = { Text("Publisher Name *", color = Slate700) },
+                placeholder = { Text("KPTB, PTCB, STBB, BTBB or type Custom Publisher", color = Slate400) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Slate900,
+                    unfocusedTextColor = Slate900,
+                    focusedBorderColor = Emerald600,
+                    unfocusedBorderColor = Slate300,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    cursorColor = Emerald600
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         // Direct Download Link
@@ -1225,6 +1317,13 @@ fun AdminAddBookTab(
                                 ""
                             }
                             isExtractingCover = false
+                            val fallbackPub = when (selectedProvince.lowercase().trim()) {
+                                "kpk" -> "KPTB"
+                                "punjab" -> "PTCB"
+                                "sindh" -> "STBB"
+                                "balochistan" -> "BTBB"
+                                else -> "KPTB"
+                            }
                             onSave(
                                 BookEntity(
                                     title = title.trim(),
@@ -1233,6 +1332,7 @@ fun AdminAddBookTab(
                                     subject = subject.trim(),
                                     bookType = bookType,
                                     fileLink = fileLink.trim(),
+                                    publisher = publisher.trim().ifBlank { fallbackPub },
                                     coverImage = extracted,
                                     fileSize = fileSize.ifBlank { "15.0 MB" },
                                     sampleContent = sampleContent.ifBlank {
@@ -1242,6 +1342,13 @@ fun AdminAddBookTab(
                             )
                         }
                     } else {
+                        val fallbackPub = when (selectedProvince.lowercase().trim()) {
+                            "kpk" -> "KPTB"
+                            "punjab" -> "PTCB"
+                            "sindh" -> "STBB"
+                            "balochistan" -> "BTBB"
+                            else -> "KPTB"
+                        }
                         onSave(
                             BookEntity(
                                 title = title.trim(),
@@ -1250,6 +1357,7 @@ fun AdminAddBookTab(
                                 subject = subject.trim(),
                                 bookType = bookType,
                                 fileLink = fileLink.trim(),
+                                publisher = publisher.trim().ifBlank { fallbackPub },
                                 coverImage = coverImage,
                                 fileSize = fileSize.ifBlank { "15.0 MB" },
                                 sampleContent = sampleContent.ifBlank {
@@ -1284,6 +1392,7 @@ fun AdminEditBookDialog(
     onSave: (BookEntity) -> Unit
 ) {
     var title by remember { mutableStateOf(book.title) }
+    var publisher by remember { mutableStateOf(book.publisher) }
     var subject by remember { mutableStateOf(book.subject) }
     var fileLink by remember { mutableStateOf(book.fileLink) }
     var fileSize by remember { mutableStateOf(book.fileSize) }
@@ -1370,6 +1479,64 @@ fun AdminEditBookDialog(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Publisher:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Slate800))
+                    val editPublishers = listOf(
+                        Pair("KPTB", "KPK (KPTB)"),
+                        Pair("PTCB", "Punjab (PTCB)"),
+                        Pair("STBB", "Sindh (STBB)"),
+                        Pair("BTBB", "Balochistan (BTBB)"),
+                        Pair("Custom", "Custom")
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        items(editPublishers) { (code, label) ->
+                            val isSelected = if (code == "Custom") {
+                                !listOf("KPTB", "PTCB", "STBB", "BTBB").contains(publisher)
+                            } else {
+                                publisher.equals(code, ignoreCase = true)
+                            }
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    if (code == "Custom") {
+                                        if (listOf("KPTB", "PTCB", "STBB", "BTBB").contains(publisher)) {
+                                            publisher = ""
+                                        }
+                                    } else {
+                                        publisher = code
+                                    }
+                                },
+                                label = { Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Emerald600,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color.White,
+                                    labelColor = Slate800
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = if (isSelected) Emerald600 else Slate300
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = publisher,
+                        onValueChange = { publisher = it },
+                        label = { Text("Publisher Name", color = Slate700) },
+                        placeholder = { Text("KPTB, PTCB, STBB, BTBB or custom", color = Slate400) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Slate900,
+                            unfocusedTextColor = Slate900,
+                            focusedBorderColor = Emerald600,
+                            unfocusedBorderColor = Slate300
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 OutlinedTextField(
                     value = subject,
                     onValueChange = { subject = it },
@@ -1417,6 +1584,7 @@ fun AdminEditBookDialog(
                     onSave(
                         book.copy(
                             title = title,
+                            publisher = publisher.trim().ifBlank { book.publisher },
                             subject = subject,
                             fileLink = fileLink,
                             fileSize = fileSize,
@@ -1458,10 +1626,16 @@ fun AdminNewsTab(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Broadcasts & Date Sheets",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Slate900)
-            )
+            Column {
+                Text(
+                    "Broadcast Notifications",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Slate900)
+                )
+                Text(
+                    "System, Students, Alerts & Other announcements",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
+                )
+            }
             Button(
                 onClick = { showCreateDialog = true },
                 colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
@@ -1469,12 +1643,20 @@ fun AdminNewsTab(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("New Notice", fontWeight = FontWeight.Bold, color = Color.White)
+                Text("New Notification", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
             }
         }
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(newsList) { item ->
+                val notifType = item.notificationType.ifBlank { item.category }
+                val (badgeColor, badgeBg, badgeIcon) = when (notifType) {
+                    "System Notify" -> Triple(Color(0xFF7C3AED), Color(0xFFF3E8FF), Icons.Default.Dns)
+                    "Alerts" -> Triple(Color(0xFFDC2626), Color(0xFFFEE2E2), Icons.Default.WarningAmber)
+                    "Others" -> Triple(Color(0xFF2563EB), Color(0xFFDBEAFE), Icons.Default.Campaign)
+                    else -> Triple(Emerald700, Emerald100, Icons.Default.School)
+                }
+
                 Surface(
                     shape = RoundedCornerShape(18.dp),
                     color = Color.White,
@@ -1486,16 +1668,57 @@ fun AdminNewsTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = badgeBg
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = badgeIcon,
+                                            contentDescription = null,
+                                            tint = badgeColor,
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = notifType,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = badgeColor,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = item.date,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Slate400,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = item.title,
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Slate900),
                                 maxLines = 1
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${item.category} • ${item.date} • ${item.boardName}",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Emerald800, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            )
+                            if (item.description.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = item.description,
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Slate600, fontSize = 11.sp),
+                                    maxLines = 2
+                                )
+                            }
                         }
                         IconButton(
                             onClick = { onDeleteNews(item.id) },
@@ -1515,18 +1738,55 @@ fun AdminNewsTab(
     if (showCreateDialog) {
         var title by remember { mutableStateOf("") }
         var description by remember { mutableStateOf("") }
-        var category by remember { mutableStateOf("Date Sheet") }
-        var boardName by remember { mutableStateOf("All Boards") }
+        var notificationType by remember { mutableStateOf("Alerts") }
+        val notificationOptions = listOf("Alerts", "System Notify", "Students Notify", "Others")
 
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            title = { Text("Broadcast New Announcement", fontWeight = FontWeight.Bold, color = Slate900) },
+            title = { Text("Send New Notification", fontWeight = FontWeight.Bold, color = Slate900) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Notification Type:",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Slate800)
+                    )
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(notificationOptions) { type ->
+                            val isSelected = notificationType == type
+                            val (tint, bg) = when(type) {
+                                "Alerts" -> Pair(Color(0xFFDC2626), Color(0xFFFEE2E2))
+                                "System Notify" -> Pair(Color(0xFF7C3AED), Color(0xFFF3E8FF))
+                                "Others" -> Pair(Color(0xFF2563EB), Color(0xFFDBEAFE))
+                                else -> Pair(Emerald700, Emerald100)
+                            }
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { notificationType = type },
+                                label = { Text(type, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = tint,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color.White,
+                                    labelColor = Slate800
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = if (isSelected) tint else Slate300
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("Title", color = Slate700) },
+                        label = { Text("Title *", color = Slate700) },
+                        placeholder = { Text("e.g. Mid-term Exam Schedule Announced", color = Slate400) },
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Slate900,
@@ -1539,21 +1799,10 @@ fun AdminNewsTab(
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
-                        label = { Text("Description", color = Slate700) },
+                        label = { Text("Description *", color = Slate700) },
+                        placeholder = { Text("Write notification details for students...", color = Slate400) },
                         minLines = 3,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Slate900,
-                            unfocusedTextColor = Slate900,
-                            focusedBorderColor = Emerald600,
-                            unfocusedBorderColor = Slate300
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = boardName,
-                        onValueChange = { boardName = it },
-                        label = { Text("Board Name (e.g. BISE Peshawar)", color = Slate700) },
+                        maxLines = 6,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Slate900,
@@ -1572,11 +1821,12 @@ fun AdminNewsTab(
                             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                             onAddNews(
                                 NewsEntity(
-                                    title = title,
-                                    description = description,
-                                    category = category,
+                                    title = title.trim(),
+                                    description = description.trim(),
+                                    category = notificationType,
+                                    notificationType = notificationType,
                                     date = today,
-                                    boardName = boardName
+                                    boardName = ""
                                 )
                             )
                             showCreateDialog = false
@@ -1585,7 +1835,7 @@ fun AdminNewsTab(
                     colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Broadcast", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Send Notification", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {

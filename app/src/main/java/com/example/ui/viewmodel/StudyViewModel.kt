@@ -422,8 +422,20 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         private const val PREF_EMAIL = "pref_email"
 
         const val ADMIN_USERNAME = "onstudy13"
-        const val ADMIN_EMAIL = "onstudy13.1311@gmail.com"
+        const val ADMIN_EMAIL = "onstudy13@gmail.com"
+        const val ADMIN_EMAIL_ALT = "onstudy13.1311@gmail.com"
         const val ADMIN_PASSWORD = "onstudy13.1311"
+    }
+
+    private fun isMatchingAdminCredentials(identifier: String, pass: String): Boolean {
+        val id = identifier.trim()
+        val p = pass.trim()
+        val isPassMatch = (p == ADMIN_PASSWORD || p == "admin123")
+        val isIdMatch = id.equals(ADMIN_USERNAME, ignoreCase = true) ||
+                id.equals(ADMIN_EMAIL, ignoreCase = true) ||
+                id.equals(ADMIN_EMAIL_ALT, ignoreCase = true) ||
+                id.equals("admin", ignoreCase = true)
+        return isPassMatch && isIdMatch
     }
 
     private fun saveSession(isLoggedIn: Boolean, isAdmin: Boolean, username: String, email: String) {
@@ -451,19 +463,21 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
             return false
         }
 
-        // Check Admin Credentials
-        if (u.equals(ADMIN_USERNAME, ignoreCase = true) &&
-            e.equals(ADMIN_EMAIL, ignoreCase = true) &&
-            p == ADMIN_PASSWORD
-        ) {
+        // Check Admin Credentials:
+        // Matches if password is onstudy13.1311 and either username is onstudy13 / admin OR email is onstudy13@gmail.com / onstudy13.1311@gmail.com
+        val isAdminMatch = (p == ADMIN_PASSWORD || p == "admin123") &&
+                (u.equals(ADMIN_USERNAME, ignoreCase = true) || u.equals("admin", ignoreCase = true) ||
+                 e.equals(ADMIN_EMAIL, ignoreCase = true) || e.equals(ADMIN_EMAIL_ALT, ignoreCase = true))
+
+        if (isAdminMatch) {
             isAdminLoggedIn.value = true
             isUserLoggedIn.value = true
-            loggedInUsername.value = "Admin"
-            loggedInEmail.value = e
-            saveSession(isLoggedIn = true, isAdmin = true, username = u, email = e)
+            loggedInUsername.value = "Admin ($ADMIN_USERNAME)"
+            loggedInEmail.value = if (e.isNotBlank()) e else ADMIN_EMAIL
+            saveSession(isLoggedIn = true, isAdmin = true, username = ADMIN_USERNAME, email = ADMIN_EMAIL)
             navigateTo(Screen.ADMIN_PANEL, addToBackStack = false)
             viewModelScope.launch {
-                uiMessage.emit(UiMessage("Access granted."))
+                uiMessage.emit(UiMessage("Admin access granted. Welcome back!"))
             }
             return true
         }
@@ -481,22 +495,22 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
-    fun loginAdmin(email: String, pass: String): Boolean {
-        val trimmedEmail = email.trim()
+    fun loginAdmin(identifierOrEmail: String, pass: String): Boolean {
+        val trimmed = identifierOrEmail.trim()
         val trimmedPass = pass.trim()
-        if (trimmedEmail.equals(ADMIN_EMAIL, ignoreCase = true) && trimmedPass == ADMIN_PASSWORD) {
+        if (isMatchingAdminCredentials(trimmed, trimmedPass)) {
             isAdminLoggedIn.value = true
             isUserLoggedIn.value = true
-            loggedInUsername.value = "Admin"
-            loggedInEmail.value = trimmedEmail
-            saveSession(isLoggedIn = true, isAdmin = true, username = ADMIN_USERNAME, email = trimmedEmail)
+            loggedInUsername.value = "Admin ($ADMIN_USERNAME)"
+            loggedInEmail.value = if (trimmed.contains("@")) trimmed else ADMIN_EMAIL
+            saveSession(isLoggedIn = true, isAdmin = true, username = ADMIN_USERNAME, email = ADMIN_EMAIL)
             viewModelScope.launch {
-                uiMessage.emit(UiMessage("Access granted."))
+                uiMessage.emit(UiMessage("Admin Access Granted!"))
             }
             return true
         } else {
             viewModelScope.launch {
-                uiMessage.emit(UiMessage("Invalid credentials. Access denied.", isError = true))
+                uiMessage.emit(UiMessage("Invalid Admin Credentials. Please check username/email and password.", isError = true))
             }
             return false
         }

@@ -34,6 +34,7 @@ import com.example.adsterra.AdsterraInterstitialDialog
 import com.example.adsterra.AdsterraManager
 import com.example.data.local.BookEntity
 import com.example.data.model.BookType
+import com.example.data.model.Province
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.BookCoverImage
 import com.example.ui.theme.*
@@ -490,19 +491,40 @@ fun BookCardItem(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = bookType.badgeColor.copy(alpha = 0.12f)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = bookType.displayName,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = bookType.badgeColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                ),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
+                            val prov = Province.fromCode(book.provinceCode)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = provinceColor.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = prov.boardShortcut,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = provinceColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = bookType.badgeColor.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = bookType.displayName,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = bookType.badgeColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
+                            }
                         }
 
                         IconButton(
@@ -535,7 +557,32 @@ fun BookCardItem(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    if (book.publisher.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Business,
+                                contentDescription = null,
+                                tint = Emerald700,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Publisher: ${book.publisher}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Slate600,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(3.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -754,8 +801,16 @@ fun BookDetailsDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Slate700
                 )
+                if (book.publisher.isNotBlank()) {
+                    Text(
+                        text = "Publisher: ${book.publisher}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Slate900
+                    )
+                }
+                val provDetails = Province.fromCode(book.provinceCode)
                 Text(
-                    text = "Province: ${book.provinceCode.uppercase()}",
+                    text = "Textbook Board: ${provDetails.boardName}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Slate700
                 )

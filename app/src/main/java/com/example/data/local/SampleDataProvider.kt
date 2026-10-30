@@ -18,8 +18,18 @@ object SampleDataProvider {
             Triple("sindh", "Sindh Board English Grammar Handbook", "Sindh Urdu Qawaid & Language Guide"),
             Triple("balochistan", "Balochistan Board English Grammar & Composition", "Balochistan Urdu Qawaid-o-Insha Guide")
         )
+        val getPublisherForProv: (String) -> String = { code ->
+            when (code.lowercase()) {
+                "kpk" -> "KPTB"
+                "punjab" -> "PTCB"
+                "sindh" -> "STBB"
+                "balochistan" -> "BTBB"
+                else -> "KPTB"
+            }
+        }
 
         for ((pCode, engTitle, urduTitle) in provincialGrammarBooks) {
+            val pub = getPublisherForProv(pCode)
             books.add(
                 BookEntity(
                     title = engTitle,
@@ -28,6 +38,7 @@ object SampleDataProvider {
                     subject = "English Grammar",
                     bookType = "GUIDE",
                     fileLink = googleDriveLink,
+                    publisher = pub,
                     coverImage = driveCoverImage,
                     fileSize = "6.5 MB",
                     uploadDate = "2026-09",
@@ -48,6 +59,7 @@ object SampleDataProvider {
                     subject = "Urdu Grammar",
                     bookType = "GUIDE",
                     fileLink = googleDriveLink,
+                    publisher = pub,
                     coverImage = driveCoverImage,
                     fileSize = "5.2 MB",
                     uploadDate = "2026-09",
@@ -64,6 +76,7 @@ object SampleDataProvider {
 
         // 3. Add "Test" book for Class 1 to 12 across all provinces
         for (prov in provinces) {
+            val provPub = getPublisherForProv(prov)
             for (lvl in 1..12) {
                 books.add(
                     BookEntity(
@@ -73,6 +86,7 @@ object SampleDataProvider {
                         subject = if (lvl == 1) "Primary Studies" else "General Knowledge & Subject Guide",
                         bookType = "TEXTBOOK",
                         fileLink = googleDriveLink,
+                        publisher = provPub,
                         coverImage = driveCoverImage,
                         fileSize = "4.2 MB",
                         uploadDate = "2026-08",
@@ -488,22 +502,44 @@ object SampleDataProvider {
     fun getInitialNews(): List<NewsEntity> {
         return listOf(
             NewsEntity(
-                title = "New Academic Curriculum & General Guides Released",
-                description = "Updated textbooks, English Grammar handbook, Health Care & First Aid guide, and solved notes are now available with direct cloud links.",
-                category = "New Guide",
+                title = "Board Exams Schedule & Solved Papers Alert",
+                description = "Annual examination date sheets and practice test books have been released for primary, middle, matric, and intermediate levels.",
+                category = "Alerts",
+                notificationType = "Alerts",
                 date = "Aug 2026",
-                boardName = "National Academic Council",
+                boardName = "",
                 isUnread = true,
-                targetClass = "All Classes"
+                targetClass = ""
             ),
             NewsEntity(
-                title = "Board Exams Schedule & Solved Papers",
-                description = "Annual examination date sheets and practice test books have been released for primary, middle, matric, and intermediate levels.",
-                category = "Date Sheet",
+                title = "System Update: In-App Reader & Cloud Sync Active",
+                description = "Offline reader now supports instant page resume, bookmarks, and automated cloud sync with Firebase.",
+                category = "System Notify",
+                notificationType = "System Notify",
                 date = "Aug 2026",
-                boardName = "All Pakistan BISE Board Network",
+                boardName = "",
+                isUnread = false,
+                targetClass = ""
+            ),
+            NewsEntity(
+                title = "New Academic Curriculum & General Guides Released",
+                description = "Updated textbooks, English Grammar handbook, Health Care & First Aid guide, and solved notes are now available with direct cloud links.",
+                category = "Students Notify",
+                notificationType = "Students Notify",
+                date = "Aug 2026",
+                boardName = "",
                 isUnread = true,
-                targetClass = "All Classes"
+                targetClass = ""
+            ),
+            NewsEntity(
+                title = "Student Career & Scholarship Counseling Sessions",
+                description = "Special webinar guidance for higher education opportunities, scholarships, and exam preparation tips.",
+                category = "Others",
+                notificationType = "Others",
+                date = "Aug 2026",
+                boardName = "",
+                isUnread = false,
+                targetClass = ""
             )
         )
     }

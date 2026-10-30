@@ -172,6 +172,18 @@ fun BookmarksScreen(viewModel: StudyViewModel) {
                                     maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
+                                if (matchedBook != null && matchedBook.publisher.isNotBlank()) {
+                                    Text(
+                                        text = "Publisher: ${matchedBook.publisher}",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Slate700,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 11.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                    Spacer(modifier = Modifier.height(1.dp))
+                                }
                                 Text(
                                     text = "${bookmark.provinceCode.uppercase()} • Class ${bookmark.classLevel} • Page ${bookmark.pageNumber} • ${bookmark.chapterTitle}",
                                     style = MaterialTheme.typography.bodySmall.copy(

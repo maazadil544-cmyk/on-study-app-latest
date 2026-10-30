@@ -215,6 +215,15 @@ class FirebaseRealtimeDbManager(private val context: Context) {
         val downloadCount = obj.optInt("downloadCount", 100)
         val totalPages = obj.optInt("totalPages", 45)
         val sampleContent = obj.optString("sampleContent", "")
+        val defaultPub = when (provinceCode.lowercase()) {
+            "kpk" -> "KPTB"
+            "punjab" -> "PTCB"
+            "sindh" -> "STBB"
+            "balochistan" -> "BTBB"
+            else -> "KPTB"
+        }
+        val rawPub = obj.optString("publisher", defaultPub)
+        val publisher = if (provinceCode.equals("kpk", ignoreCase = true) && (rawPub.contains("Textbook Board", ignoreCase = true) || rawPub.isBlank())) "KPTB" else rawPub
 
         return BookEntity(
             id = id,
@@ -224,6 +233,7 @@ class FirebaseRealtimeDbManager(private val context: Context) {
             subject = subject,
             bookType = bookType,
             fileLink = fileLink,
+            publisher = publisher,
             coverImage = coverImage,
             fileSize = fileSize,
             uploadDate = uploadDate,
@@ -247,6 +257,7 @@ class FirebaseRealtimeDbManager(private val context: Context) {
                 put("subject", book.subject)
                 put("bookType", book.bookType)
                 put("fileLink", book.fileLink)
+                put("publisher", book.publisher)
                 put("coverImage", book.coverImage)
                 put("fileSize", book.fileSize)
                 put("uploadDate", book.uploadDate)
@@ -326,9 +337,10 @@ class FirebaseRealtimeDbManager(private val context: Context) {
         if (title.isBlank()) return null
         val id = if (obj.has("id")) obj.optLong("id") else (fallbackId ?: System.currentTimeMillis())
         val description = obj.optString("description", "")
-        val category = obj.optString("category", "General")
+        val notificationType = obj.optString("notificationType", obj.optString("category", "Students Notify"))
+        val category = notificationType
         val date = obj.optString("date", "2026-08")
-        val boardName = obj.optString("boardName", "All Boards")
+        val boardName = obj.optString("boardName", "")
         val targetClass = obj.optString("targetClass", "All Classes")
 
         return NewsEntity(
@@ -336,6 +348,7 @@ class FirebaseRealtimeDbManager(private val context: Context) {
             title = title,
             description = description,
             category = category,
+            notificationType = notificationType,
             date = date,
             boardName = boardName,
             isUnread = true,
@@ -354,6 +367,7 @@ class FirebaseRealtimeDbManager(private val context: Context) {
                 put("title", news.title)
                 put("description", news.description)
                 put("category", news.category)
+                put("notificationType", news.notificationType)
                 put("date", news.date)
                 put("boardName", news.boardName)
                 put("targetClass", news.targetClass)
@@ -401,6 +415,7 @@ class FirebaseRealtimeDbManager(private val context: Context) {
                     put("subject", b.subject)
                     put("bookType", b.bookType)
                     put("fileLink", b.fileLink)
+                    put("publisher", b.publisher)
                     put("coverImage", b.coverImage)
                     put("fileSize", b.fileSize)
                     put("uploadDate", b.uploadDate)
@@ -451,6 +466,7 @@ class FirebaseRealtimeDbManager(private val context: Context) {
                     put("title", n.title)
                     put("description", n.description)
                     put("category", n.category)
+                    put("notificationType", n.notificationType)
                     put("date", n.date)
                     put("boardName", n.boardName)
                     put("targetClass", n.targetClass)

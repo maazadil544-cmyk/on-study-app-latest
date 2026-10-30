@@ -32,13 +32,23 @@ fun NewsScreen(viewModel: StudyViewModel) {
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncingWithFirebase.collectAsStateWithLifecycle()
     val unreadCount by viewModel.unreadNewsCount.collectAsStateWithLifecycle()
+    var selectedFilter by remember { mutableStateOf("All") }
+
+    val filterOptions = listOf("All", "Alerts", "System Notify", "Students Notify", "Others")
+    val filteredList = remember(newsList, selectedFilter) {
+        if (selectedFilter == "All") newsList
+        else newsList.filter {
+            val type = it.notificationType.ifBlank { it.category }
+            type.equals(selectedFilter, ignoreCase = true)
+        }
+    }
 
     Scaffold(
         containerColor = Slate50,
         topBar = {
             AppTopBar(
-                title = "Board News & Updates",
-                subtitle = if (unreadCount > 0) "$unreadCount New Announcements" else "Exam Schedules & Guides",
+                title = "Notifications & Updates",
+                subtitle = if (unreadCount > 0) "$unreadCount New Notifications" else "Official Announcements & Alerts",
                 showBackButton = true,
                 onBackClick = { viewModel.navigateBack() },
                 viewModel = viewModel
@@ -124,6 +134,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                     modifier = Modifier
                                         .size(32.dp)
                                         .testTag("sync_news_button")
+                                        .background(Slate100, CircleShape)
                                 ) {
                                     if (isSyncing) {
                                         CircularProgressIndicator(
@@ -146,12 +157,47 @@ fun NewsScreen(viewModel: StudyViewModel) {
                 }
             }
 
-            if (newsList.isEmpty()) {
+            // Notification Type Filter Chips
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    filterOptions.forEach { option ->
+                        val isSelected = selectedFilter == option
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedFilter = option },
+                            label = {
+                                Text(
+                                    text = option,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Emerald600,
+                                selectedLabelColor = Color.White,
+                                containerColor = Color.White,
+                                labelColor = Slate800
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = if (isSelected) Emerald600 else Slate300
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                }
+            }
+
+            if (filteredList.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 60.dp),
+                            .padding(vertical = 50.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -174,7 +220,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "No Announcements Yet",
+                                text = if (selectedFilter == "All") "No Notifications Yet" else "No $selectedFilter Notifications",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Slate700
@@ -182,7 +228,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "New updates and board notifications will appear here.",
+                                text = "Important announcements and updates will appear here.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Slate400,
                                     fontSize = 12.sp
@@ -192,12 +238,13 @@ fun NewsScreen(viewModel: StudyViewModel) {
                     }
                 }
             } else {
-                items(newsList, key = { it.id }) { item ->
-                    val (categoryColor, categoryBg, categoryIcon) = when (item.category) {
-                        "Date Sheet" -> Triple(Color(0xFFDC2626), Color(0xFFFEE2E2), Icons.Outlined.Event)
-                        "New Guide" -> Triple(Emerald600, Emerald100, Icons.Outlined.MenuBook)
-                        "Syllabus Update" -> Triple(Color(0xFF2563EB), Color(0xFFDBEAFE), Icons.Default.Update)
-                        else -> Triple(Color(0xFFD97706), Color(0xFFFEF3C7), Icons.Outlined.Campaign)
+                items(filteredList, key = { it.id }) { item ->
+                    val notifType = item.notificationType.ifBlank { item.category }
+                    val (categoryColor, categoryBg, categoryIcon) = when (notifType) {
+                        "System Notify" -> Triple(Color(0xFF7C3AED), Color(0xFFF3E8FF), Icons.Default.Dns)
+                        "Alerts" -> Triple(Color(0xFFDC2626), Color(0xFFFEE2E2), Icons.Default.WarningAmber)
+                        "Others" -> Triple(Color(0xFF2563EB), Color(0xFFDBEAFE), Icons.Default.Campaign)
+                        else -> Triple(Emerald700, Emerald100, Icons.Default.School) // Students Notify
                     }
 
                     Surface(
@@ -237,9 +284,9 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                             tint = categoryColor,
                                             modifier = Modifier.size(14.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = item.category,
+                                            text = notifType,
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 color = categoryColor,
                                                 fontWeight = FontWeight.Bold,
@@ -292,43 +339,28 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                 )
                             )
 
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Text(
-                                text = item.description,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Slate600,
-                                    lineHeight = 22.sp,
-                                    fontSize = 13.sp
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    color = Slate100,
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = "Target: ${item.targetClass} • ${item.boardName}",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = Slate600,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            if (item.description.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = item.description,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Slate600,
+                                        lineHeight = 22.sp,
+                                        fontSize = 13.sp
                                     )
-                                }
+                                )
+                            }
 
-                                if (item.isUnread) {
+                            if (item.isUnread) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Surface(
                                         color = Emerald50,
-                                        shape = RoundedCornerShape(6.dp)
+                                        shape = RoundedCornerShape(8.dp)
                                     ) {
                                         Text(
                                             text = "Tap to mark read",
@@ -337,7 +369,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 10.sp
                                             ),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
                                 }

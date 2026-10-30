@@ -13,6 +13,7 @@ data class BookEntity(
     val subject: String,
     val bookType: String, // TEXTBOOK, GUIDE, NOTES, PAST_PAPERS
     val fileLink: String, // Mediafire, Google Drive, or Direct link
+    val publisher: String = "KPTB",
     val coverImage: String = "",
     val fileSize: String = "12.5 MB",
     val isDownloaded: Boolean = false,
@@ -64,9 +65,10 @@ data class NewsEntity(
     val id: Long = 0,
     val title: String,
     val description: String,
-    val category: String, // Date Sheet, New Guide, Syllabus Update, Board Notice
+    val category: String = "Students Notify", // Notification Type: System Notify, Students Notify, Alerts, Others
+    val notificationType: String = "Students Notify", // System Notify, Students Notify, Alerts, Others
     val date: String,
-    val boardName: String = "All Boards",
+    val boardName: String = "",
     val isUnread: Boolean = true,
     val targetClass: String = "All Classes"
 )

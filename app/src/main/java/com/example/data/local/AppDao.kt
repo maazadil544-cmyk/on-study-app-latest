@@ -69,6 +69,18 @@ interface AppDao {
     @Query("SELECT COUNT(*) FROM books")
     suspend fun getBooksCount(): Int
 
+    @Query("UPDATE books SET publisher = :publisher WHERE LOWER(provinceCode) = 'kpk'")
+    suspend fun updateKpkBooksPublisher(publisher: String = "KPTB")
+
+    @Query("UPDATE books SET publisher = :publisher WHERE LOWER(provinceCode) = 'punjab'")
+    suspend fun updatePunjabBooksPublisher(publisher: String = "PTCB")
+
+    @Query("UPDATE books SET publisher = :publisher WHERE LOWER(provinceCode) = 'sindh'")
+    suspend fun updateSindhBooksPublisher(publisher: String = "STBB")
+
+    @Query("UPDATE books SET publisher = :publisher WHERE LOWER(provinceCode) = 'balochistan'")
+    suspend fun updateBalochistanBooksPublisher(publisher: String = "BTBB")
+
     // --- Bookmarks ---
     @Query("SELECT * FROM bookmarks ORDER BY timestamp DESC")
     fun getAllBookmarks(): Flow<List<BookmarkEntity>>
