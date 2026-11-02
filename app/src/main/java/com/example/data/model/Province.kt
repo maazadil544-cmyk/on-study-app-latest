@@ -83,6 +83,8 @@ enum class Province(
     );
 
     companion object {
+        val educationalProvinces: List<Province> = listOf(KPK, PUNJAB, BALOCHISTAN, SINDH)
+
         fun fromCode(code: String): Province {
             return values().firstOrNull { it.code.equals(code, ignoreCase = true) || it.name.equals(code, ignoreCase = true) } ?: PUNJAB
         }

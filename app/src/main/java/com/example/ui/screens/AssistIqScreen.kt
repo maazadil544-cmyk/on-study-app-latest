@@ -249,7 +249,7 @@ fun AssistIqScreen(viewModel: StudyViewModel) {
                     .navigationBarsPadding()
                     .background(Color.White)
             ) {
-                Divider(color = Slate200, thickness = 1.dp)
+                HorizontalDivider(color = Slate200, thickness = 1.dp)
 
                 // Input Bar Dock
                 Row(

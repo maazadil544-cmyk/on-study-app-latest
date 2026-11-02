@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -441,7 +442,7 @@ fun LoginScreen(viewModel: StudyViewModel) {
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
@@ -450,39 +451,6 @@ fun LoginScreen(viewModel: StudyViewModel) {
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
-
-                    // Quick Admin Login
-                    OutlinedButton(
-                        onClick = {
-                            username = "onstudy13"
-                            email = "onstudy13@gmail.com"
-                            password = "onstudy13.1311"
-                            performLogin()
-                        },
-                        shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald300),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("admin_quick_login_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AdminPanelSettings,
-                            contentDescription = null,
-                            tint = Emerald700,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Admin Access (onstudy13)",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Emerald800,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Quick Guest / Instant Student Access
                     TextButton(

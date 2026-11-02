@@ -46,6 +46,11 @@ class StudyRepository(
                 val generalBooks = SampleDataProvider.getGeneralBooks()
                 dao.insertBooks(generalBooks)
             }
+            val hasProvincialGeneral = allBooks.any { it.bookType.equals("GENERAL", ignoreCase = true) && !it.provinceCode.equals("general", ignoreCase = true) }
+            if (!hasProvincialGeneral) {
+                val provGeneral = SampleDataProvider.getProvincialGeneralBooks()
+                dao.insertBooks(provGeneral)
+            }
         }
 
         // Ensure all existing KPK books have publisher "KPTB" as requested

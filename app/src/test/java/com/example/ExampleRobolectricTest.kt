@@ -22,7 +22,7 @@ class ExampleRobolectricTest {
 
   @Test
   fun `verify all 4 provinces configured`() {
-    val provinces = Province.values()
-    assertEquals(5, provinces.size)
+    val provinces = Province.educationalProvinces
+    assertEquals(4, provinces.size)
   }
 }

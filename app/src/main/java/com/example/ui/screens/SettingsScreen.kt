@@ -134,58 +134,60 @@ fun SettingsScreen(viewModel: StudyViewModel) {
                 }
             }
 
-            // Admin Management Portal Card
-            item {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color.White,
-                    shadowElevation = 2.dp,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(2.dp, RoundedCornerShape(24.dp), spotColor = Slate200)
-                ) {
-                    Row(
+            // Admin Management Portal Card (visible only when logged in as admin)
+            if (isAdminLoggedIn) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .shadow(2.dp, RoundedCornerShape(24.dp), spotColor = Slate200)
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .size(46.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isAdminLoggedIn) Emerald600 else Slate800),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AdminPanelSettings,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isAdminLoggedIn) "Admin Dashboard" else "Admin Portal",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Slate900
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Emerald600),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AdminPanelSettings,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
                                 )
-                            )
-                            Text(
-                                text = if (isAdminLoggedIn) "Active • Books, guides, and notifications" else "Log in with onstudy13 to manage content",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
-                            )
-                        }
-                        Button(
-                            onClick = { viewModel.navigateTo(Screen.ADMIN_PANEL) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("settings_open_admin_btn")
-                        ) {
-                            Text(if (isAdminLoggedIn) "Open" else "Access", fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Admin Dashboard",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Slate900
+                                    )
+                                )
+                                Text(
+                                    text = "Active • Books, guides, and notifications",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
+                                )
+                            }
+                            Button(
+                                onClick = { viewModel.navigateTo(Screen.ADMIN_PANEL) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.testTag("settings_open_admin_btn")
+                            ) {
+                                Text("Open", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

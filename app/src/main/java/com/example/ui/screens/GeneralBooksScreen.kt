@@ -46,6 +46,7 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
     val generalBooks by viewModel.generalBooks.collectAsStateWithLifecycle()
     val availableSubjects by viewModel.generalSubjects.collectAsStateWithLifecycle()
     val selectedSubject by viewModel.selectedSubjectFilter.collectAsStateWithLifecycle()
+    val selectedProvinceCode by viewModel.selectedGeneralProvince.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -55,24 +56,49 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
     }
 
     var selectedBookForDialog by remember { mutableStateOf<BookEntity?>(null) }
+    var isFilterExpanded by remember { mutableStateOf(false) }
+    val activeFilterCount = (if (!selectedProvinceCode.equals("all", ignoreCase = true)) 1 else 0) +
+            (if (selectedSubject != null && selectedSubject != "All") 1 else 0)
 
-    val filteredBooks = remember(generalBooks, selectedSubject, searchQuery) {
+    val filteredBooks = remember(generalBooks, selectedProvinceCode, selectedSubject, searchQuery) {
         generalBooks.filter { book ->
+            val matchProvince = when (selectedProvinceCode.lowercase()) {
+                "all" -> true
+                else -> book.provinceCode.equals(selectedProvinceCode, ignoreCase = true) ||
+                        book.provinceCode.equals("general", ignoreCase = true)
+            }
             val matchSubject = selectedSubject == null || selectedSubject == "All" || book.subject.equals(selectedSubject, ignoreCase = true)
             val matchQuery = searchQuery.isBlank() ||
                     book.title.contains(searchQuery, ignoreCase = true) ||
                     book.subject.contains(searchQuery, ignoreCase = true) ||
+                    book.publisher.contains(searchQuery, ignoreCase = true) ||
                     book.sampleContent.contains(searchQuery, ignoreCase = true)
-            matchSubject && matchQuery
+            matchProvince && matchSubject && matchQuery
         }
+    }
+
+    val screenTitle = when (selectedProvinceCode.lowercase()) {
+        "kpk" -> "KPK General Library"
+        "punjab" -> "Punjab General Library"
+        "sindh" -> "Sindh General Library"
+        "balochistan" -> "Balochistan General Library"
+        else -> "General Books Library"
+    }
+
+    val screenSubtitle = when (selectedProvinceCode.lowercase()) {
+        "kpk" -> "KPK General Books & Guides (KPTB)"
+        "punjab" -> "Punjab General Books & Guides (PCTB)"
+        "sindh" -> "Sindh General Books & Guides (STBB)"
+        "balochistan" -> "Balochistan General Books & Guides (BTBB)"
+        else -> "Health Care, General Knowledge, Science & Skills"
     }
 
     Scaffold(
         containerColor = Slate50,
         topBar = {
             AppTopBar(
-                title = "General Books Library",
-                subtitle = "Grammar, Health Care, GK & Skills",
+                title = screenTitle,
+                subtitle = screenSubtitle,
                 showBackButton = true,
                 onBackClick = { viewModel.navigateBack() },
                 viewModel = viewModel
@@ -95,81 +121,224 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Search Input Field
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.searchQuery.value = it },
-                    placeholder = {
-                        Text(
-                            "Search Grammar, Health, GK, Science, Tenses...",
-                            color = Slate400,
-                            fontSize = 14.sp
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = Emerald600,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.searchQuery.value = "" }) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = Slate500,
+                // Search Input & Filter Button Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.searchQuery.value = it },
+                        placeholder = {
+                            Text(
+                                "Search Health, GK, Science, Computer...",
+                                color = Slate400,
+                                fontSize = 13.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Emerald600,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.searchQuery.value = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = Slate500,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Slate900,
+                            unfocusedTextColor = Slate900,
+                            focusedBorderColor = Emerald600,
+                            unfocusedBorderColor = Slate200,
+                            focusedContainerColor = Slate50,
+                            unfocusedContainerColor = Slate50,
+                            cursorColor = Emerald600
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("general_books_search_input")
+                    )
+
+                    // Filter Button with Badge
+                    Surface(
+                        onClick = { isFilterExpanded = !isFilterExpanded },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isFilterExpanded || activeFilterCount > 0) Emerald600 else Slate100,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isFilterExpanded || activeFilterCount > 0) Emerald600 else Slate200
+                        ),
+                        modifier = Modifier
+                            .height(52.dp)
+                            .testTag("general_books_filter_button")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Filter",
+                                tint = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate700,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Filter",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate800
+                                )
+                            )
+                            if (activeFilterCount > 0) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = if (isFilterExpanded) Color.White else Emerald600,
+                                    shape = CircleShape,
                                     modifier = Modifier.size(18.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "$activeFilterCount",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (isFilterExpanded) Emerald700 else Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Collapsible Filter Panel
+                AnimatedVisibility(visible = isFilterExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Province Selector Chips for General Library
+                        val provinceOptions = listOf(
+                            "all" to "All Libraries",
+                            "kpk" to "KPK (KPTB)",
+                            "punjab" to "Punjab (PCTB)",
+                            "sindh" to "Sindh (STBB)",
+                            "balochistan" to "Balochistan (BTBB)"
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            items(provinceOptions) { (pCode, pLabel) ->
+                                val isProvSelected = selectedProvinceCode.equals(pCode, ignoreCase = true)
+                                FilterChip(
+                                    selected = isProvSelected,
+                                    onClick = {
+                                        viewModel.selectedGeneralProvince.value = pCode
+                                    },
+                                    label = {
+                                        Text(
+                                            text = pLabel,
+                                            fontWeight = if (isProvSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF0D9488),
+                                        selectedLabelColor = Color.White,
+                                        containerColor = Color(0xFFF0FDFA),
+                                        labelColor = Color(0xFF115E59)
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = isProvSelected,
+                                        borderColor = if (isProvSelected) Color(0xFF0D9488) else Color(0xFF99F6E4)
+                                    ),
+                                    modifier = Modifier.testTag("general_province_chip_$pCode")
                                 )
                             }
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Slate900,
-                        unfocusedTextColor = Slate900,
-                        focusedBorderColor = Emerald600,
-                        unfocusedBorderColor = Slate200,
-                        focusedContainerColor = Slate50,
-                        unfocusedContainerColor = Slate50,
-                        cursorColor = Emerald600
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("general_books_search_input")
-                )
 
-                // Subject Filter Tabs
-                if (availableSubjects.size > 1) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) {
-                        items(availableSubjects) { subject ->
-                            val isSelected = (selectedSubject == subject) || (selectedSubject == null && subject == "All")
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.selectedSubjectFilter.value = if (subject == "All") "All" else subject },
-                                label = {
-                                    Text(
-                                        text = subject,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 12.sp
+                        // Subject Filter Tabs
+                        if (availableSubjects.size > 1) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp)
+                            ) {
+                                items(availableSubjects) { subject ->
+                                    val isSelected = (selectedSubject == subject) || (selectedSubject == null && subject == "All")
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { viewModel.selectedSubjectFilter.value = if (subject == "All") "All" else subject },
+                                        label = {
+                                            Text(
+                                                text = subject,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 12.sp
+                                            )
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Emerald600,
+                                            selectedLabelColor = Color.White,
+                                            containerColor = Slate100,
+                                            labelColor = Slate700
+                                        ),
+                                        border = null,
+                                        modifier = Modifier.testTag("filter_subject_$subject")
                                     )
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Emerald600,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = Slate100,
-                                    labelColor = Slate700
-                                ),
-                                border = null,
-                                modifier = Modifier.testTag("filter_subject_$subject")
-                            )
+                                }
+                            }
+                        }
+
+                        // Reset filters action if any filter is active
+                        if (activeFilterCount > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.selectedGeneralProvince.value = "all"
+                                        viewModel.selectedSubjectFilter.value = "All"
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Emerald700
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        "Reset Filters",
+                                        fontSize = 12.sp,
+                                        color = Emerald700,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }

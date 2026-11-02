@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material3.*
@@ -186,11 +187,11 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                 )
             }
 
-            // Dedicated Grammar & General Category Card for this Province
+            // Dedicated Grammar & Composition Section Card for this Province
             item {
                 val grammarBooksCount = allBooks.count {
-                    (it.provinceCode.equals(selectedProvince.code, ignoreCase = true) || it.provinceCode.equals("general", ignoreCase = true)) &&
-                    (it.classLevel == 0 || it.subject.contains("Grammar", ignoreCase = true) || it.title.contains("Grammar", ignoreCase = true))
+                    it.provinceCode.equals(selectedProvince.code, ignoreCase = true) &&
+                    (StudyViewModel.isProvincialGrammarBook(it) || (it.classLevel == 0 && !StudyViewModel.isGeneralBook(it)))
                 }
 
                 Surface(
@@ -247,7 +248,7 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
-                                        text = "گرائمر کتب",
+                                        text = "${selectedProvince.title} گرائمر",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = selectedProvince.primaryColor,
                                             fontWeight = FontWeight.Bold,
@@ -259,7 +260,7 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                             }
                             Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = "English & Urdu Grammar, Essays, Tenses & Solved Guides",
+                                text = "English & Urdu Grammar, Essays, Tenses & Solved Guides (${selectedProvince.boardShortcut})",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Slate600,
                                     fontSize = 12.sp

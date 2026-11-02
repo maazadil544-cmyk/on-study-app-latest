@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,19 +32,11 @@ import com.example.ui.viewmodel.StudyViewModel
 @Composable
 fun NewsScreen(viewModel: StudyViewModel) {
     val newsList by viewModel.allNews.collectAsStateWithLifecycle()
+    val pinnedIds by viewModel.pinnedNewsIds.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncingWithFirebase.collectAsStateWithLifecycle()
     val unreadCount by viewModel.unreadNewsCount.collectAsStateWithLifecycle()
-    var selectedFilter by remember { mutableStateOf("All") }
-
-    val filterOptions = listOf("All", "Alerts", "System Notify", "Students Notify", "Others")
-    val filteredList = remember(newsList, selectedFilter) {
-        if (selectedFilter == "All") newsList
-        else newsList.filter {
-            val type = it.notificationType.ifBlank { it.category }
-            type.equals(selectedFilter, ignoreCase = true)
-        }
-    }
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = Slate50,
@@ -157,42 +152,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                 }
             }
 
-            // Notification Type Filter Chips
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    filterOptions.forEach { option ->
-                        val isSelected = selectedFilter == option
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedFilter = option },
-                            label = {
-                                Text(
-                                    text = option,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Emerald600,
-                                selectedLabelColor = Color.White,
-                                containerColor = Color.White,
-                                labelColor = Slate800
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = isSelected,
-                                borderColor = if (isSelected) Emerald600 else Slate300
-                            ),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                    }
-                }
-            }
-
-            if (filteredList.isEmpty()) {
+            if (newsList.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -220,7 +180,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (selectedFilter == "All") "No Notifications Yet" else "No $selectedFilter Notifications",
+                                text = "No Notifications Yet",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Slate700
@@ -238,7 +198,8 @@ fun NewsScreen(viewModel: StudyViewModel) {
                     }
                 }
             } else {
-                items(filteredList, key = { it.id }) { item ->
+                items(newsList, key = { it.id }) { item ->
+                    val isPinned = pinnedIds.contains(item.id)
                     val notifType = item.notificationType.ifBlank { item.category }
                     val (categoryColor, categoryBg, categoryIcon) = when (notifType) {
                         "System Notify" -> Triple(Color(0xFF7C3AED), Color(0xFFF3E8FF), Icons.Default.Dns)
@@ -251,10 +212,10 @@ fun NewsScreen(viewModel: StudyViewModel) {
                         onClick = { viewModel.markNewsAsRead(item.id) },
                         shape = RoundedCornerShape(24.dp),
                         color = Color.White,
-                        shadowElevation = if (item.isUnread) 4.dp else 1.dp,
+                        shadowElevation = if (isPinned) 4.dp else if (item.isUnread) 3.dp else 1.dp,
                         border = androidx.compose.foundation.BorderStroke(
-                            if (item.isUnread) 1.5.dp else 1.dp,
-                            if (item.isUnread) categoryColor.copy(alpha = 0.5f) else Slate200
+                            if (isPinned) 1.5.dp else if (item.isUnread) 1.5.dp else 1.dp,
+                            if (isPinned) Color(0xFFF59E0B) else if (item.isUnread) categoryColor.copy(alpha = 0.5f) else Slate200
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -265,6 +226,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                 .fillMaxWidth()
                                 .padding(18.dp)
                         ) {
+                            // Top Row: Notification Type Badge (Left) & Pin/New/Date (Right)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -297,6 +259,37 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isPinned) {
+                                        Surface(
+                                            color = Color(0xFFFEF3C7),
+                                            shape = RoundedCornerShape(6.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A))
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.PushPin,
+                                                    contentDescription = "Pinned",
+                                                    tint = Color(0xFFB45309),
+                                                    modifier = Modifier.size(10.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text(
+                                                    text = "PINNED",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = Color(0xFF92400E),
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 9.sp,
+                                                        letterSpacing = 0.5.sp
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+
                                     if (item.isUnread) {
                                         Surface(
                                             color = Color(0xFFEF4444),
@@ -351,19 +344,100 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                 )
                             }
 
-                            if (item.isUnread) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            HorizontalDivider(color = Slate100, thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Bottom Actions: Pin and Share options
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    // Pin Option
+                                    FilledTonalButton(
+                                        onClick = { viewModel.togglePinNews(item.id) },
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = if (isPinned) Color(0xFFFEF3C7) else Slate100,
+                                            contentColor = if (isPinned) Color(0xFF92400E) else Slate700
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .testTag("pin_news_button_${item.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                            contentDescription = if (isPinned) "Unpin" else "Pin",
+                                            modifier = Modifier.size(15.dp),
+                                            tint = if (isPinned) Color(0xFFD97706) else Slate600
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isPinned) "Pinned" else "Pin",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+
+                                    // Share Option
+                                    FilledTonalButton(
+                                        onClick = {
+                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_SUBJECT, item.title)
+                                                val shareBody = buildString {
+                                                    append("📢 ")
+                                                    append(item.title)
+                                                    append("\n\n")
+                                                    if (item.description.isNotBlank()) {
+                                                        append(item.description)
+                                                        append("\n\n")
+                                                    }
+                                                    append("🏷️ Type: $notifType\n")
+                                                    append("📅 Date: ${item.date}\n")
+                                                    append("— Shared via ON Study App")
+                                                }
+                                                putExtra(Intent.EXTRA_TEXT, shareBody)
+                                            }
+                                            val chooser = Intent.createChooser(shareIntent, "Share Notification via")
+                                            context.startActivity(chooser)
+                                        },
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = Emerald50,
+                                            contentColor = Emerald800
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .testTag("share_news_button_${item.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = "Share",
+                                            modifier = Modifier.size(15.dp),
+                                            tint = Emerald700
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Share",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                if (item.isUnread) {
                                     Surface(
                                         color = Emerald50,
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.clickable { viewModel.markNewsAsRead(item.id) }
                                     ) {
                                         Text(
-                                            text = "Tap to mark read",
+                                            text = "Mark read",
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 color = Emerald700,
                                                 fontWeight = FontWeight.SemiBold,

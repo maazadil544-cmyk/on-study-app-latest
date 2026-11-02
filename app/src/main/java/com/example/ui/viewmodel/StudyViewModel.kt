@@ -134,8 +134,17 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     val allNotes: StateFlow<List<NoteEntity>> = repository.getAllNotes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allNews: StateFlow<List<NewsEntity>> = repository.getAllNews()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val pinnedNewsIds = MutableStateFlow<Set<Long>>(loadPinnedNewsIds())
+
+    val allNews: StateFlow<List<NewsEntity>> = combine(
+        repository.getAllNews(),
+        pinnedNewsIds
+    ) { list, pinnedSet ->
+        list.sortedWith(
+            compareByDescending<NewsEntity> { pinnedSet.contains(it.id) }
+                .thenByDescending { it.id }
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val chatMessages: StateFlow<List<ChatMessageEntity>> = repository.getAllChatMessages()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -146,8 +155,10 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     val unreadNewsCount: StateFlow<Int> = repository.getUnreadNewsCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val selectedGeneralProvince = MutableStateFlow<String>("all")
+
     val generalBooks: StateFlow<List<BookEntity>> = allBooks.map { list ->
-        list.filter { it.provinceCode.equals("general", ignoreCase = true) || it.classLevel == 0 }
+        list.filter { isGeneralBook(it) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val generalSubjects: StateFlow<List<String>> = generalBooks.map { list ->
@@ -178,17 +189,12 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         filterCriteria
     ) { books, filter ->
         books.filter { book ->
-            val matchProvince = if (filter.classLevel == 0) {
-                book.provinceCode.equals(filter.province.code, ignoreCase = true) ||
-                (book.provinceCode.equals("general", ignoreCase = true) && (book.subject.contains("Grammar", ignoreCase = true) || book.title.contains("Grammar", ignoreCase = true)))
-            } else {
-                book.provinceCode.equals(filter.province.code, ignoreCase = true)
-            }
+            val matchProvince = book.provinceCode.equals(filter.province.code, ignoreCase = true)
 
             val matchClass = if (filter.classLevel == 0) {
-                book.classLevel == 0 || book.subject.contains("Grammar", ignoreCase = true) || book.title.contains("Grammar", ignoreCase = true)
+                isProvincialGrammarBook(book) || (book.classLevel == 0 && !isGeneralBook(book))
             } else {
-                book.classLevel == filter.classLevel
+                book.classLevel == filter.classLevel && !isGeneralBook(book)
             }
 
             val matchSubject = filter.subject == null || filter.subject == "All" || book.subject.equals(filter.subject, ignoreCase = true)
@@ -203,11 +209,11 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     val availableSubjects: StateFlow<List<String>> = combine(allBooks, selectedProvince, selectedClassLevel) { books, prov, cls ->
         val subjects = if (cls == 0) {
             books.filter {
-                (it.provinceCode.equals(prov.code, ignoreCase = true) || it.provinceCode.equals("general", ignoreCase = true)) &&
-                (it.classLevel == 0 || it.subject.contains("Grammar", ignoreCase = true) || it.title.contains("Grammar", ignoreCase = true))
+                it.provinceCode.equals(prov.code, ignoreCase = true) &&
+                (isProvincialGrammarBook(it) || (it.classLevel == 0 && !isGeneralBook(it)))
             }.map { it.subject }.distinct().sorted()
         } else {
-            books.filter { it.provinceCode.equals(prov.code, ignoreCase = true) && it.classLevel == cls }
+            books.filter { it.provinceCode.equals(prov.code, ignoreCase = true) && it.classLevel == cls && !isGeneralBook(it) }
                 .map { it.subject }
                 .distinct()
                 .sorted()
@@ -238,7 +244,10 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         navigateTo(Screen.CLASS_SELECT)
     }
 
-    fun openGeneralBooks(subject: String? = null) {
+    fun openGeneralBooks(provinceCode: String? = null, subject: String? = null) {
+        if (!provinceCode.isNullOrBlank()) {
+            selectedGeneralProvince.value = provinceCode.lowercase()
+        }
         selectedSubjectFilter.value = subject ?: "All"
         searchQuery.value = ""
         com.example.adsterra.AdsterraManager.triggerPopunder(getApplication())
@@ -414,17 +423,70 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun togglePinNews(newsId: Long) {
+        val current = pinnedNewsIds.value.toMutableSet()
+        val isNowPinned = if (current.contains(newsId)) {
+            current.remove(newsId)
+            false
+        } else {
+            current.add(newsId)
+            true
+        }
+        pinnedNewsIds.value = current
+        savePinnedNewsIds(current)
+        viewModelScope.launch {
+            uiMessage.emit(UiMessage(if (isNowPinned) "Notification pinned to top" else "Notification unpinned"))
+        }
+    }
+
+    private fun loadPinnedNewsIds(): Set<Long> {
+        val stringSet = prefs.getStringSet(PREF_PINNED_NEWS_IDS, emptySet()) ?: emptySet()
+        return stringSet.mapNotNull { it.toLongOrNull() }.toSet()
+    }
+
+    private fun savePinnedNewsIds(ids: Set<Long>) {
+        prefs.edit()
+            .putStringSet(PREF_PINNED_NEWS_IDS, ids.map { it.toString() }.toSet())
+            .apply()
+    }
+
     // Admin & User Authentication
     companion object {
         private const val PREF_IS_LOGGED_IN = "pref_is_logged_in"
         private const val PREF_IS_ADMIN = "pref_is_admin"
         private const val PREF_USERNAME = "pref_username"
         private const val PREF_EMAIL = "pref_email"
+        private const val PREF_PINNED_NEWS_IDS = "pref_pinned_news_ids"
 
         const val ADMIN_USERNAME = "onstudy13"
         const val ADMIN_EMAIL = "onstudy13@gmail.com"
         const val ADMIN_EMAIL_ALT = "onstudy13.1311@gmail.com"
         const val ADMIN_PASSWORD = "onstudy13.1311"
+
+        fun isProvincialGrammarBook(book: BookEntity): Boolean {
+            val isNotGeneralProv = !book.provinceCode.equals("general", ignoreCase = true)
+            val isGrammarText = book.subject.contains("Grammar", ignoreCase = true) ||
+                    book.subject.contains("Qawaid", ignoreCase = true) ||
+                    book.subject.contains("Insha", ignoreCase = true) ||
+                    book.title.contains("Grammar", ignoreCase = true)
+            val isGrammarClass = (book.classLevel == 0) && !book.bookType.equals("GENERAL", ignoreCase = true)
+            return isNotGeneralProv && (isGrammarClass || isGrammarText) && !book.bookType.equals("GENERAL", ignoreCase = true) && book.classLevel != -1
+        }
+
+        fun isGeneralBook(book: BookEntity): Boolean {
+            // Provincial grammar books must NEVER appear in General Books
+            if (isProvincialGrammarBook(book)) return false
+            return book.provinceCode.equals("general", ignoreCase = true) ||
+                    book.bookType.equals("GENERAL", ignoreCase = true) ||
+                    book.classLevel == -1 ||
+                    (book.classLevel == 0 && (book.subject.contains("Health", ignoreCase = true) ||
+                            book.subject.contains("Knowledge", ignoreCase = true) ||
+                            book.subject.contains("Computer", ignoreCase = true) ||
+                            book.subject.contains("Science", ignoreCase = true) ||
+                            book.subject.contains("Islamic", ignoreCase = true) ||
+                            book.subject.contains("General", ignoreCase = true) ||
+                            book.subject.contains("First Aid", ignoreCase = true)))
+        }
     }
 
     private fun isMatchingAdminCredentials(identifier: String, pass: String): Boolean {

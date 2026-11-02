@@ -64,6 +64,10 @@ fun BookListScreen(viewModel: StudyViewModel) {
         }
     }
 
+    var isFilterExpanded by remember { mutableStateOf(false) }
+    val activeFilterCount = (if (selectedSubject != null && selectedSubject != "All") 1 else 0) +
+            (if (selectedBookType != null) 1 else 0)
+
     Scaffold(
         containerColor = Slate50,
         topBar = {
@@ -105,137 +109,236 @@ fun BookListScreen(viewModel: StudyViewModel) {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Search Input Field
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.searchQuery.value = it },
-                    placeholder = { Text("Search Math, Physics, Notes, Guides...", color = Slate400, fontSize = 14.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = Emerald600,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.searchQuery.value = "" }) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = Slate500,
-                                    modifier = Modifier.size(18.dp)
+                // Search Input & Filter Button Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.searchQuery.value = it },
+                        placeholder = { Text("Search Math, Physics, Notes...", color = Slate400, fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Emerald600,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.searchQuery.value = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = Slate500,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Slate900,
+                            unfocusedTextColor = Slate900,
+                            focusedBorderColor = Emerald600,
+                            unfocusedBorderColor = Slate200,
+                            focusedContainerColor = Slate50,
+                            unfocusedContainerColor = Slate50,
+                            cursorColor = Emerald600
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("book_list_search_field")
+                    )
+
+                    // Filter Button with Badge
+                    Surface(
+                        onClick = { isFilterExpanded = !isFilterExpanded },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isFilterExpanded || activeFilterCount > 0) Emerald600 else Slate100,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isFilterExpanded || activeFilterCount > 0) Emerald600 else Slate200
+                        ),
+                        modifier = Modifier
+                            .height(52.dp)
+                            .testTag("book_list_filter_button")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Filter",
+                                tint = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate700,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Filter",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate800
                                 )
+                            )
+                            if (activeFilterCount > 0) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = if (isFilterExpanded) Color.White else Emerald600,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(18.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "$activeFilterCount",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (isFilterExpanded) Emerald700 else Color.White
+                                        )
+                                    }
+                                }
                             }
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Slate900,
-                        unfocusedTextColor = Slate900,
-                        focusedBorderColor = Emerald600,
-                        unfocusedBorderColor = Slate200,
-                        focusedContainerColor = Slate50,
-                        unfocusedContainerColor = Slate50,
-                        cursorColor = Emerald600
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("book_list_search_field")
-                )
-
-                // Subject Filter Chips
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp)
-                ) {
-                    items(availableSubjects) { subject ->
-                        val isSelected = selectedSubject == subject
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.selectedSubjectFilter.value = subject },
-                            label = {
-                                Text(
-                                    subject,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 12.sp
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Emerald600,
-                                selectedLabelColor = Color.White,
-                                containerColor = Slate100,
-                                labelColor = Slate700
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = isSelected,
-                                borderColor = if (isSelected) Emerald600 else Slate200
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("subject_chip_$subject")
-                        )
                     }
                 }
 
-                // Book Type Chips (All Types, Textbook, Guide & Keybook, etc.)
-                // Removed/hidden when in Grammar section (selectedClassLevel == 0)
-                if (selectedClassLevel != 0) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
+                // Collapsible Filter Panel
+                AnimatedVisibility(visible = isFilterExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item {
-                            FilterChip(
-                                selected = selectedBookType == null,
-                                onClick = { viewModel.selectedBookTypeFilter.value = null },
-                                label = { Text("All Types", fontSize = 12.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Slate800,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = Slate100,
-                                    labelColor = Slate700
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = selectedBookType == null,
-                                    borderColor = if (selectedBookType == null) Slate800 else Slate200
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                        // Subject Filter Chips
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            items(availableSubjects) { subject ->
+                                val isSelected = selectedSubject == subject
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { viewModel.selectedSubjectFilter.value = subject },
+                                    label = {
+                                        Text(
+                                            subject,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Emerald600,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = Slate100,
+                                        labelColor = Slate700
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = isSelected,
+                                        borderColor = if (isSelected) Emerald600 else Slate200
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.testTag("subject_chip_$subject")
+                                )
+                            }
                         }
 
-                        items(BookType.values()) { type ->
-                            val isSelected = selectedBookType == type
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    viewModel.selectedBookTypeFilter.value = if (isSelected) null else type
-                                },
-                                label = { Text(type.displayName, fontSize = 12.sp) },
-                                leadingIcon = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isSelected) Color.White else type.badgeColor)
+                        // Book Type Chips (All Types, Textbook, Guide & Keybook, etc.)
+                        // Removed/hidden when in Grammar section (selectedClassLevel == 0)
+                        if (selectedClassLevel != 0) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp)
+                            ) {
+                                item {
+                                    FilterChip(
+                                        selected = selectedBookType == null,
+                                        onClick = { viewModel.selectedBookTypeFilter.value = null },
+                                        label = { Text("All Types", fontSize = 12.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Slate800,
+                                            selectedLabelColor = Color.White,
+                                            containerColor = Slate100,
+                                            labelColor = Slate700
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = selectedBookType == null,
+                                            borderColor = if (selectedBookType == null) Slate800 else Slate200
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
                                     )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = type.badgeColor,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = Slate100,
-                                    labelColor = Slate700
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = isSelected,
-                                    borderColor = if (isSelected) type.badgeColor else Slate200
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                                }
+
+                                items(BookType.values()) { type ->
+                                    val isSelected = selectedBookType == type
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            viewModel.selectedBookTypeFilter.value = if (isSelected) null else type
+                                        },
+                                        label = { Text(type.displayName, fontSize = 12.sp) },
+                                        leadingIcon = {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isSelected) Color.White else type.badgeColor)
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = type.badgeColor,
+                                            selectedLabelColor = Color.White,
+                                            containerColor = Slate100,
+                                            labelColor = Slate700
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSelected,
+                                            borderColor = if (isSelected) type.badgeColor else Slate200
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Reset filters action if any filter is active
+                        if (activeFilterCount > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.selectedSubjectFilter.value = "All"
+                                        viewModel.selectedBookTypeFilter.value = null
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Emerald700
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        "Reset Filters",
+                                        fontSize = 12.sp,
+                                        color = Emerald700,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }

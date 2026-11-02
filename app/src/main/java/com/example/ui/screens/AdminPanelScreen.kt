@@ -648,8 +648,13 @@ fun AdminBooksListTab(
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
+                                val categoryLabel = when {
+                                    StudyViewModel.isProvincialGrammarBook(book) || (book.classLevel == 0 && !StudyViewModel.isGeneralBook(book)) -> "Grammar & Composition"
+                                    StudyViewModel.isGeneralBook(book) || book.classLevel == -1 -> "General Library"
+                                    else -> "Class ${book.classLevel}"
+                                }
                                 Text(
-                                    text = "${if (book.classLevel == 0) "Grammar / General" else "Class ${book.classLevel}"} • ${book.subject} • ${book.bookType}",
+                                    text = "$categoryLabel • ${book.subject} • ${book.bookType}",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Emerald800,
                                         fontSize = 11.sp,
@@ -852,7 +857,7 @@ fun AdminAddBookTab(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Province.values().forEach { prov ->
+                Province.educationalProvinces.forEach { prov ->
                     val isSelected = selectedProvince.equals(prov.code, ignoreCase = true)
                     FilterChip(
                         selected = isSelected,
@@ -884,26 +889,36 @@ fun AdminAddBookTab(
             }
         }
 
-        // Class Picker (Classes 1 to 12 & Grammar Category)
+        // Category / Section Selector (Grammar & Composition vs General Book Library vs Classes 1-12)
         item {
-            Text("Select Class or Category:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Slate900))
-            Spacer(modifier = Modifier.height(4.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Grammar / General Category Chip (Class 0)
-                item {
-                    val isGrammar = selectedClass == 0
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Target Section for ${selectedProvince.uppercase()}:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Slate900)
+                )
+
+                // Category Tabs
+                val isGrammar = selectedClass == 0 && !bookType.equals("GENERAL", ignoreCase = true)
+                val isGeneral = selectedClass == -1 || bookType.equals("GENERAL", ignoreCase = true)
+                val isSchoolClass = selectedClass in 1..12
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 1. Grammar & Composition
                     FilterChip(
                         selected = isGrammar,
                         onClick = {
                             selectedClass = 0
+                            if (bookType.equals("GENERAL", ignoreCase = true)) {
+                                bookType = "GUIDE"
+                            }
                             if (!subject.contains("Grammar", ignoreCase = true)) {
                                 subject = "English Grammar"
                             }
                         },
-                        label = { Text("Grammar / General (0)", fontWeight = if (isGrammar) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Grammar & Composition", fontWeight = if (isGrammar) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Emerald600,
                             selectedLabelColor = Color.White,
@@ -915,30 +930,94 @@ fun AdminAddBookTab(
                             selected = isGrammar,
                             borderColor = if (isGrammar) Emerald600 else Slate300
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
                     )
-                }
 
-                items(12) { index ->
-                    val classNum = index + 1
-                    val isSelected = selectedClass == classNum
+                    // 2. General Book Library
                     FilterChip(
-                        selected = isSelected,
-                        onClick = { selectedClass = classNum },
-                        label = { Text("Class $classNum", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        selected = isGeneral,
+                        onClick = {
+                            selectedClass = -1
+                            bookType = "GENERAL"
+                            if (subject.contains("Grammar", ignoreCase = true) || subject.contains("Physics", ignoreCase = true)) {
+                                subject = "General Knowledge"
+                            }
+                        },
+                        label = { Text("General Book Library", fontWeight = if (isGeneral) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Emerald600,
+                            selectedContainerColor = Color(0xFF0D9488),
                             selectedLabelColor = Color.White,
                             containerColor = Color.White,
                             labelColor = Slate800
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
-                            selected = isSelected,
-                            borderColor = if (isSelected) Emerald600 else Slate300
+                            selected = isGeneral,
+                            borderColor = if (isGeneral) Color(0xFF0D9488) else Slate300
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
                     )
+                }
+
+                // Description badge of where the book goes
+                Surface(
+                    color = if (isGrammar) Emerald50 else if (isGeneral) Color(0xFFF0FDFA) else Slate100,
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isGrammar) Emerald200 else if (isGeneral) Color(0xFF99F6E4) else Slate200)
+                ) {
+                    Text(
+                        text = when {
+                            isGrammar -> "📚 Uploading to: ${selectedProvince.uppercase()} Grammar & Composition (Will NOT appear in General Books)"
+                            isGeneral -> "📖 Uploading to: ${selectedProvince.uppercase()} General Book Library (Will NOT appear in Grammar section)"
+                            else -> "🎓 Uploading to: ${selectedProvince.uppercase()} Class $selectedClass Curriculum"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isGrammar) Emerald800 else if (isGeneral) Color(0xFF115E59) else Slate700,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp
+                        ),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Or Select School Curriculum Class (Class 1 to 12):",
+                    style = MaterialTheme.typography.labelSmall.copy(color = Slate600)
+                )
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(12) { index ->
+                        val classNum = index + 1
+                        val isSelected = isSchoolClass && selectedClass == classNum
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                selectedClass = classNum
+                                if (bookType.equals("GENERAL", ignoreCase = true)) {
+                                    bookType = "TEXTBOOK"
+                                }
+                            },
+                            label = { Text("Class $classNum", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Emerald600,
+                                selectedLabelColor = Color.White,
+                                containerColor = Color.White,
+                                labelColor = Slate800
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = if (isSelected) Emerald600 else Slate300
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1394,6 +1473,9 @@ fun AdminEditBookDialog(
     var title by remember { mutableStateOf(book.title) }
     var publisher by remember { mutableStateOf(book.publisher) }
     var subject by remember { mutableStateOf(book.subject) }
+    var editProvince by remember { mutableStateOf(book.provinceCode) }
+    var editClass by remember { mutableStateOf(book.classLevel) }
+    var editBookType by remember { mutableStateOf(book.bookType) }
     var fileLink by remember { mutableStateOf(book.fileLink) }
     var fileSize by remember { mutableStateOf(book.fileSize) }
     var coverImage by remember { mutableStateOf(book.coverImage) }
@@ -1405,7 +1487,12 @@ fun AdminEditBookDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Book Entry", fontWeight = FontWeight.Bold, color = Slate900) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 // Book Cover Preview & Extraction
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1416,7 +1503,7 @@ fun AdminEditBookDialog(
                         coverImage = coverImage,
                         title = title,
                         subject = subject,
-                        bookType = BookType.fromString(book.bookType),
+                        bookType = BookType.fromString(editBookType),
                         fileLink = fileLink,
                         modifier = Modifier
                             .width(52.dp)
@@ -1442,8 +1529,8 @@ fun AdminEditBookDialog(
                                                 rawUrl = fileLink,
                                                 fallbackTitle = title,
                                                 fallbackSubject = subject,
-                                                fallbackClass = book.classLevel,
-                                                fallbackProvince = book.provinceCode
+                                                fallbackClass = editClass,
+                                                fallbackProvince = editProvince
                                             )
                                         } catch (e: Exception) {
                                             ""
@@ -1463,6 +1550,49 @@ fun AdminEditBookDialog(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+                }
+
+                // Province Selector
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Province:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Slate800))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("kpk" to "KPK", "punjab" to "Punjab", "sindh" to "Sindh", "balochistan" to "Balochistan").forEach { (code, name) ->
+                            val isProvSelected = editProvince.equals(code, ignoreCase = true)
+                            FilterChip(
+                                selected = isProvSelected,
+                                onClick = { editProvince = code },
+                                label = { Text(name, fontSize = 10.sp, fontWeight = if (isProvSelected) FontWeight.Bold else FontWeight.Normal) },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Target Section Selector
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Target Section:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Slate800))
+                    val isGrammar = editClass == 0 && !editBookType.equals("GENERAL", ignoreCase = true)
+                    val isGeneral = editClass == -1 || editBookType.equals("GENERAL", ignoreCase = true)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilterChip(
+                            selected = isGrammar,
+                            onClick = {
+                                editClass = 0
+                                if (editBookType.equals("GENERAL", ignoreCase = true)) editBookType = "GUIDE"
+                            },
+                            label = { Text("Grammar & Composition", fontSize = 10.sp, fontWeight = if (isGrammar) FontWeight.Bold else FontWeight.Normal) },
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        FilterChip(
+                            selected = isGeneral,
+                            onClick = {
+                                editClass = -1
+                                editBookType = "GENERAL"
+                            },
+                            label = { Text("General Library", fontSize = 10.sp, fontWeight = if (isGeneral) FontWeight.Bold else FontWeight.Normal) },
+                            shape = RoundedCornerShape(8.dp)
+                        )
                     }
                 }
 
@@ -1584,6 +1714,9 @@ fun AdminEditBookDialog(
                     onSave(
                         book.copy(
                             title = title,
+                            provinceCode = editProvince.lowercase().trim(),
+                            classLevel = editClass,
+                            bookType = editBookType,
                             publisher = publisher.trim().ifBlank { book.publisher },
                             subject = subject,
                             fileLink = fileLink,
@@ -1933,8 +2066,13 @@ fun AdminAnalyticsTab(books: List<BookEntity>) {
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Slate900),
                             maxLines = 1
                         )
+                        val catLabel = when {
+                            StudyViewModel.isProvincialGrammarBook(book) || (book.classLevel == 0 && !StudyViewModel.isGeneralBook(book)) -> "Grammar & Composition"
+                            StudyViewModel.isGeneralBook(book) || book.classLevel == -1 -> "General Library"
+                            else -> "Class ${book.classLevel}"
+                        }
                         Text(
-                            text = "${book.provinceCode.uppercase()} • ${if (book.classLevel == 0) "Grammar / General" else "Class ${book.classLevel}"} • ${book.subject}",
+                            text = "${book.provinceCode.uppercase()} • $catLabel • ${book.subject}",
                             style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
                         )
                     }

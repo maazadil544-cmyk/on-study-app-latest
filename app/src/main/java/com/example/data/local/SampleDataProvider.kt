@@ -74,6 +74,9 @@ object SampleDataProvider {
             )
         }
 
+        // 2.5. Add Provincial General Books for each province (Health Care, GK, Science, Skills)
+        books.addAll(getProvincialGeneralBooks())
+
         // 3. Add "Test" book for Class 1 to 12 across all provinces
         for (prov in provinces) {
             val provPub = getPublisherForProv(prov)
@@ -103,6 +106,72 @@ object SampleDataProvider {
         }
 
         return books
+    }
+
+    fun getProvincialGeneralBooks(): List<BookEntity> {
+        val googleDriveLink = "https://drive.google.com/file/d/1Oo5pIMwXYg6KvfoGlumpxxBrCbpmK6Bl/view?usp=drive_link"
+        val driveCoverImage = "https://lh3.googleusercontent.com/d/1Oo5pIMwXYg6KvfoGlumpxxBrCbpmK6Bl=w800"
+        val list = mutableListOf<BookEntity>()
+
+        val provincialGeneral = listOf(
+            Triple("kpk", "KPK General Knowledge & Informative Guide", "Health Care & Emergency First Aid (KPK Edition)"),
+            Triple("punjab", "Punjab General Knowledge & History", "Health Care & First Aid (Punjab Edition)"),
+            Triple("sindh", "Sindh General Knowledge & Cultural Heritage", "Health Care & Hygiene Guide (Sindh Edition)"),
+            Triple("balochistan", "Balochistan General Knowledge & Geography", "Health Care & Emergency Guide (Balochistan Edition)")
+        )
+
+        for ((pCode, gkTitle, healthTitle) in provincialGeneral) {
+            val pub = when (pCode) {
+                "kpk" -> "KPTB"
+                "punjab" -> "PTCB"
+                "sindh" -> "STBB"
+                "balochistan" -> "BTBB"
+                else -> "KPTB"
+            }
+            list.add(
+                BookEntity(
+                    title = gkTitle,
+                    provinceCode = pCode,
+                    classLevel = -1,
+                    subject = "General Knowledge",
+                    bookType = "GENERAL",
+                    fileLink = googleDriveLink,
+                    publisher = pub,
+                    coverImage = driveCoverImage,
+                    fileSize = "7.8 MB",
+                    uploadDate = "2026-09",
+                    downloadCount = 1140,
+                    totalPages = 64,
+                    sampleContent = """
+                        $gkTitle
+                        General Knowledge, History, Geography, Culture and Provincial Heritage of ${pCode.uppercase()}.
+                        Published under ${pub} General Education Series.
+                    """.trimIndent()
+                )
+            )
+            list.add(
+                BookEntity(
+                    title = healthTitle,
+                    provinceCode = pCode,
+                    classLevel = -1,
+                    subject = "Health & First Aid",
+                    bookType = "GENERAL",
+                    fileLink = googleDriveLink,
+                    publisher = pub,
+                    coverImage = driveCoverImage,
+                    fileSize = "5.6 MB",
+                    uploadDate = "2026-09",
+                    downloadCount = 1380,
+                    totalPages = 48,
+                    sampleContent = """
+                        $healthTitle
+                        Basic First Aid, Health Care, Nutrition and Emergency Medical Guidelines.
+                        Province: ${pCode.uppercase()} (${pub}).
+                    """.trimIndent()
+                )
+            )
+        }
+        return list
     }
 
     fun getGeneralBooks(): List<BookEntity> {

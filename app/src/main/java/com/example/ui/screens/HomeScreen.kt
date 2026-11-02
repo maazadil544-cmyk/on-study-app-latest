@@ -295,8 +295,20 @@ fun HomeScreen(viewModel: StudyViewModel) {
                     }
                 }
 
-                // Section 3: General & Skill Books (Grammar, Health Care, GK, Computer, etc.)
+                // Section 3: General & Skill Books (Health Care, GK, Computer, Science, etc.)
                 item {
+                    var homeGeneralProvince by remember { mutableStateOf("all") }
+                    val displayedGeneralBooks = remember(generalBooks, homeGeneralProvince) {
+                        if (homeGeneralProvince == "all") {
+                            generalBooks
+                        } else {
+                            generalBooks.filter {
+                                it.provinceCode.equals(homeGeneralProvince, ignoreCase = true) ||
+                                it.provinceCode.equals("general", ignoreCase = true)
+                            }
+                        }
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -329,7 +341,7 @@ fun HomeScreen(viewModel: StudyViewModel) {
                                         )
                                     )
                                     Text(
-                                        text = "عام اور معلوماتی کتب (Grammar, Health & GK)",
+                                        text = "عام اور معلوماتی کتب (Health, GK, Science & Skills)",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Color(0xFF0D9488),
                                             fontWeight = FontWeight.SemiBold,
@@ -342,13 +354,13 @@ fun HomeScreen(viewModel: StudyViewModel) {
                             TextButton(
                                 onClick = {
                                     AdsterraManager.triggerPopunder(context)
-                                    viewModel.openGeneralBooks()
+                                    viewModel.openGeneralBooks(if (homeGeneralProvince == "all") null else homeGeneralProvince)
                                 },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                 modifier = Modifier.testTag("home_view_all_general_books")
                             ) {
                                 Text(
-                                    text = "View All (${generalBooks.size})",
+                                    text = "View All (${displayedGeneralBooks.size})",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF0D9488),
@@ -366,17 +378,53 @@ fun HomeScreen(viewModel: StudyViewModel) {
 
                         Spacer(modifier = Modifier.height(10.dp))
 
+                        // Province Selector for General Books on Home
+                        val homeProvOptions = listOf(
+                            "all" to "All Libraries",
+                            "kpk" to "KPK (KPTB)",
+                            "punjab" to "Punjab (PCTB)",
+                            "sindh" to "Sindh (STBB)",
+                            "balochistan" to "Balochistan (BTBB)"
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            items(homeProvOptions) { (pCode, pLabel) ->
+                                val isSelected = homeGeneralProvince == pCode
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { homeGeneralProvince = pCode },
+                                    label = { Text(pLabel, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF0D9488),
+                                        selectedLabelColor = Color.White,
+                                        containerColor = Color.White,
+                                        labelColor = Color(0xFF115E59)
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = isSelected,
+                                        borderColor = if (isSelected) Color(0xFF0D9488) else Color(0xFF99F6E4)
+                                    )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
                         // Quick Subject Filter Chips on Home
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(horizontal = 2.dp)
                         ) {
                             val topics = listOf(
-                                "English Grammar" to Icons.Default.Spellcheck,
                                 "Health & First Aid" to Icons.Default.MedicalServices,
                                 "General Knowledge" to Icons.Default.Lightbulb,
                                 "Computer Skills" to Icons.Default.Computer,
-                                "Urdu Grammar" to Icons.Default.MenuBook,
+                                "Science & Tech" to Icons.Default.Science,
                                 "Islamic & Ethics" to Icons.Default.Mosque
                             )
 
@@ -384,7 +432,7 @@ fun HomeScreen(viewModel: StudyViewModel) {
                                 Surface(
                                     onClick = {
                                         AdsterraManager.triggerPopunder(context)
-                                        viewModel.openGeneralBooks(topic)
+                                        viewModel.openGeneralBooks(if (homeGeneralProvince == "all") null else homeGeneralProvince, topic)
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     color = Color.White,
@@ -419,12 +467,12 @@ fun HomeScreen(viewModel: StudyViewModel) {
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Horizontal Carousel of Featured General Books
-                        if (generalBooks.isNotEmpty()) {
+                        if (displayedGeneralBooks.isNotEmpty()) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 contentPadding = PaddingValues(horizontal = 2.dp)
                             ) {
-                                items(generalBooks) { book ->
+                                items(displayedGeneralBooks) { book ->
                                     FeaturedGeneralBookCard(
                                         book = book,
                                         onOpen = { viewModel.openReader(book) },

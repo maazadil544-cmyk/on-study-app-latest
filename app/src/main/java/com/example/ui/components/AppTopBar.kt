@@ -322,21 +322,22 @@ fun MoreBottomSheet(
                 }
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-
             val isAdmin by viewModel.isAdminLoggedIn.collectAsStateWithLifecycle()
-            MoreMenuItem(
-                title = if (isAdmin) "Admin Dashboard" else "Admin Portal",
-                subtitle = if (isAdmin) "Content management: Books, guides, and notifications" else "Log in as administrator (onstudy13)",
-                icon = Icons.Default.AdminPanelSettings,
-                badgeColor = Emerald700,
-                containerBg = Emerald50,
-                testTag = "more_menu_admin_portal",
-                onClick = {
-                    onDismiss()
-                    viewModel.navigateTo(Screen.ADMIN_PANEL)
-                }
-            )
+            if (isAdmin) {
+                Spacer(modifier = Modifier.height(10.dp))
+                MoreMenuItem(
+                    title = "Admin Dashboard",
+                    subtitle = "Content management: Books, guides, and notifications",
+                    icon = Icons.Default.AdminPanelSettings,
+                    badgeColor = Emerald700,
+                    containerBg = Emerald50,
+                    testTag = "more_menu_admin_portal",
+                    onClick = {
+                        onDismiss()
+                        viewModel.navigateTo(Screen.ADMIN_PANEL)
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
