@@ -21,6 +21,7 @@ app/build/
 *.keystore.base64
 debug.keystore*
 !my-upload-key.jks
+!my-upload-key.jks.base64
 !upload_certificate.pem
 /captures
 .externalNativeBuild
