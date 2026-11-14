@@ -329,26 +329,27 @@ class StudyRepository(
         return pdfDownloader.extractGoogleDriveFileId(rawUrl)
     }
 
-    fun resolveEmbedViewUrl(rawUrl: String): String {
+    fun resolveEmbedViewUrl(rawUrl: String, page: Int = 1): String {
         val trimmed = rawUrl.trim()
         if (trimmed.isBlank()) return ""
+        val pageFragment = if (page > 1) "#page=$page" else ""
         val driveFileMatch = Regex("""drive\.google\.com/file/d/([a-zA-Z0-9_-]+)""").find(trimmed)
         if (driveFileMatch != null) {
             val fileId = driveFileMatch.groupValues[1]
-            return "https://drive.google.com/file/d/$fileId/preview"
+            return "https://drive.google.com/file/d/$fileId/preview$pageFragment"
         }
         val driveIdMatch = Regex("""drive\.google\.com/.*[?&]id=([a-zA-Z0-9_-]+)""").find(trimmed)
         if (driveIdMatch != null) {
             val fileId = driveIdMatch.groupValues[1]
-            return "https://drive.google.com/file/d/$fileId/preview"
+            return "https://drive.google.com/file/d/$fileId/preview$pageFragment"
         }
         val docMatch = Regex("""docs\.google\.com/document/d/([a-zA-Z0-9_-]+)""").find(trimmed)
         if (docMatch != null) {
             val docId = docMatch.groupValues[1]
-            return "https://docs.google.com/document/d/$docId/preview"
+            return "https://docs.google.com/document/d/$docId/preview$pageFragment"
         }
         return if (trimmed.endsWith(".pdf", ignoreCase = true)) {
-            "https://docs.google.com/viewer?embedded=true&url=$trimmed"
+            "https://docs.google.com/viewer?embedded=true&url=$trimmed$pageFragment"
         } else {
             trimmed
         }
@@ -570,8 +571,24 @@ class StudyRepository(
         }
     }
 
-    suspend fun sendChatMessage(userText: String, history: List<ChatMessageEntity>): Result<String> = withContext(Dispatchers.IO) {
-        // Save user message in local Room DB
+    suspend fun sendChatMessage(
+        userText: String,
+        history: List<ChatMessageEntity>,
+        detailedMode: Boolean = false
+    ): Result<String> = sendChatMessageStreaming(
+        userText = userText,
+        history = history,
+        detailedMode = detailedMode,
+        onChunk = {}
+    )
+
+    suspend fun sendChatMessageStreaming(
+        userText: String,
+        history: List<ChatMessageEntity>,
+        detailedMode: Boolean = false,
+        onChunk: suspend (String) -> Unit
+    ): Result<String> = withContext(Dispatchers.IO) {
+        // Save user message in local Room DB immediately
         dao.insertChatMessage(
             ChatMessageEntity(
                 text = userText,
@@ -580,24 +597,37 @@ class StudyRepository(
             )
         )
 
-        val turns = history.map {
-            com.example.data.remote.AssistIqService.ChatTurn(
-                role = if (it.isUser) "user" else "model",
-                text = it.text
-            )
-        }
+        // Exclude failed error bubbles and boilerplate welcome message for lean, fast payloads
+        val turns = history
+            .filter { it.status == "SUCCESS" && !it.text.startsWith("Hi! AssistIQ online hai.") }
+            .takeLast(6)
+            .map {
+                com.example.data.remote.AssistIqService.ChatTurn(
+                    role = if (it.isUser) "user" else "model",
+                    text = it.text
+                )
+            }
 
-        var result = com.example.data.remote.AssistIqService.sendMessage(turns, userText)
+        var result = com.example.data.remote.AssistIqService.sendMessageStreaming(
+            history = turns,
+            userMessage = userText,
+            detailedMode = detailedMode,
+            onPartialText = onChunk
+        )
 
-        // If the request fails with an authentication / invalid key error,
-        // automatically fetch the latest active key from Firebase Cloud and retry!
-        if (result.isFailure && com.example.data.remote.AssistIqService.isAuthError(result.exceptionOrNull())) {
-            android.util.Log.w("StudyRepository", "AssistIQ authentication failed. Auto-fetching fresh key from Firebase Cloud and retrying...")
+        // If the request fails, check if Firebase Cloud has a newer/different active key and retry once
+        if (result.isFailure) {
+            val currentKey = com.example.data.remote.AssistIqService.getEffectiveApiKey()
             val freshKey = firebaseManager.fetchRemoteGeminiApiKey()
-            if (!freshKey.isNullOrBlank()) {
+            if (!freshKey.isNullOrBlank() && freshKey != currentKey) {
+                android.util.Log.i("StudyRepository", "Retrying AssistIQ with updated Firebase Cloud key...")
                 com.example.data.remote.AssistIqService.setDynamicApiKey(freshKey)
-                // Retry once with the newly fetched cloud key
-                result = com.example.data.remote.AssistIqService.sendMessage(turns, userText)
+                result = com.example.data.remote.AssistIqService.sendMessageStreaming(
+                    history = turns,
+                    userMessage = userText,
+                    detailedMode = detailedMode,
+                    onPartialText = onChunk
+                )
             }
         }
 

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,6 +141,7 @@ fun HomeScreen(viewModel: StudyViewModel) {
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(52.dp)
                         .shadow(2.dp, RoundedCornerShape(18.dp), spotColor = Slate200)
                         .testTag("home_search_input"),
                     singleLine = true
@@ -321,6 +323,7 @@ fun HomeScreen(viewModel: StudyViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
+                                modifier = Modifier.weight(1f),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
@@ -330,7 +333,7 @@ fun HomeScreen(viewModel: StudyViewModel) {
                                         .clip(CircleShape)
                                         .background(Color(0xFF0D9488))
                                 )
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = "GENERAL BOOKS & GUIDES",
                                         style = MaterialTheme.typography.labelSmall.copy(
@@ -338,7 +341,9 @@ fun HomeScreen(viewModel: StudyViewModel) {
                                             color = Slate600,
                                             letterSpacing = 1.4.sp,
                                             fontSize = 11.sp
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = "عام اور معلوماتی کتب (Health, GK, Science & Skills)",
@@ -346,10 +351,14 @@ fun HomeScreen(viewModel: StudyViewModel) {
                                             color = Color(0xFF0D9488),
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 11.sp
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             TextButton(
                                 onClick = {
@@ -365,7 +374,9 @@ fun HomeScreen(viewModel: StudyViewModel) {
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF0D9488),
                                         fontSize = 11.sp
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -637,7 +648,7 @@ fun GeometricProvinceCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(15.dp),
             horizontalAlignment = Alignment.Start
         ) {
             // Top Row: Monogram Badge & Urdu Pill
@@ -649,13 +660,13 @@ fun GeometricProvinceCard(
                 // Monogram Badge
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(48.dp)
                         .shadow(
                             elevation = 6.dp,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(14.dp),
                             spotColor = province.primaryColor.copy(alpha = 0.35f)
                         )
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(province.primaryColor),
                     contentAlignment = Alignment.Center
                 ) {
@@ -665,10 +676,12 @@ fun GeometricProvinceCard(
                             color = Color.White,
                             fontWeight = FontWeight.Black,
                             fontStyle = FontStyle.Italic,
-                            fontSize = 20.sp
+                            fontSize = 18.sp
                         )
                     )
                 }
+
+                Spacer(modifier = Modifier.width(6.dp))
 
                 // Urdu Badge
                 Surface(
@@ -684,22 +697,27 @@ fun GeometricProvinceCard(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Province Name
             Text(
                 text = province.title,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
+                    fontSize = 19.sp,
                     color = Slate800,
                     letterSpacing = (-0.3).sp
-                )
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             // Board label
@@ -708,8 +726,10 @@ fun GeometricProvinceCard(
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Slate500,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp
-                )
+                    fontSize = 12.5.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -827,7 +847,8 @@ fun GeometricHeroRecentCard(
                                 fontSize = 20.sp,
                                 letterSpacing = (-0.4).sp
                             ),
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -835,7 +856,9 @@ fun GeometricHeroRecentCard(
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Emerald100,
                                 fontSize = 12.sp
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -933,6 +956,7 @@ fun GeometricHeroRecentCard(
                             fontWeight = FontWeight.Medium
                         ),
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
                     Icon(
@@ -1051,8 +1075,8 @@ fun GeometricBottomNavigation(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             GeometricNavItem(
@@ -1060,7 +1084,8 @@ fun GeometricBottomNavigation(
                 label = "HOME",
                 isSelected = currentScreen == Screen.HOME,
                 onClick = { viewModel.navigateTo(Screen.HOME) },
-                testTag = "bottom_nav_home"
+                testTag = "bottom_nav_home",
+                modifier = Modifier.weight(1f)
             )
 
             GeometricNavItem(
@@ -1068,7 +1093,8 @@ fun GeometricBottomNavigation(
                 label = "ASSIST IQ",
                 isSelected = currentScreen == Screen.ASSIST_IQ,
                 onClick = { viewModel.navigateTo(Screen.ASSIST_IQ) },
-                testTag = "bottom_nav_assistiq"
+                testTag = "bottom_nav_assistiq",
+                modifier = Modifier.weight(1f)
             )
 
             GeometricNavItem(
@@ -1076,7 +1102,8 @@ fun GeometricBottomNavigation(
                 label = "SAVED",
                 isSelected = currentScreen == Screen.BOOKMARKS,
                 onClick = { viewModel.navigateTo(Screen.BOOKMARKS) },
-                testTag = "bottom_nav_saved"
+                testTag = "bottom_nav_saved",
+                modifier = Modifier.weight(1f)
             )
 
             GeometricNavItem(
@@ -1085,6 +1112,7 @@ fun GeometricBottomNavigation(
                 isSelected = currentScreen == Screen.NEWS,
                 onClick = { viewModel.navigateTo(Screen.NEWS) },
                 testTag = "bottom_nav_news",
+                modifier = Modifier.weight(1f),
                 showBadge = hasUnreadNews,
                 badgeCount = unreadNewsCount
             )
@@ -1094,7 +1122,8 @@ fun GeometricBottomNavigation(
                 label = "MORE",
                 isSelected = false,
                 onClick = { viewModel.showMoreBottomSheet.value = true },
-                testTag = "bottom_nav_more"
+                testTag = "bottom_nav_more",
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -1108,14 +1137,15 @@ private fun GeometricNavItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     testTag: String,
+    modifier: Modifier = Modifier,
     showBadge: Boolean = false,
     badgeCount: Int = 0
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .padding(horizontal = 4.dp, vertical = 6.dp)
             .testTag(testTag),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -1154,9 +1184,12 @@ private fun GeometricNavItem(
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 fontSize = 10.sp,
-                letterSpacing = 0.5.sp,
+                letterSpacing = 0.2.sp,
                 color = if (isSelected) Emerald600 else Slate400
-            )
+            ),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
         if (isSelected) {
             Spacer(modifier = Modifier.height(2.dp))
@@ -1223,8 +1256,14 @@ fun FeaturedGeneralBookCard(
                     elevation = 2.dp
                 )
 
+                Spacer(modifier = Modifier.width(8.dp))
+
                 val provShortcut = Province.fromCode(book.provinceCode).boardShortcut
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Surface(
                         color = containerBg,
                         shape = RoundedCornerShape(6.dp)
@@ -1237,12 +1276,15 @@ fun FeaturedGeneralBookCard(
                                 fontSize = 9.sp,
                                 letterSpacing = 0.5.sp
                             ),
+                            maxLines = 1,
+                            softWrap = false,
                             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
                     Surface(
                         color = containerBg,
-                        shape = RoundedCornerShape(6.dp)
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
                             text = book.subject.uppercase(),
@@ -1252,6 +1294,9 @@ fun FeaturedGeneralBookCard(
                                 fontSize = 9.sp,
                                 letterSpacing = 0.5.sp
                             ),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }

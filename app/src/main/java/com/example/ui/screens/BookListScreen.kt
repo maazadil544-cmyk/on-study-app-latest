@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -32,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.adsterra.AdsterraBannerAd
 import com.example.adsterra.AdsterraInterstitialDialog
 import com.example.adsterra.AdsterraManager
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import com.example.data.local.BookEntity
 import com.example.data.model.BookType
 import com.example.data.model.Province
@@ -48,8 +52,8 @@ fun BookListScreen(viewModel: StudyViewModel) {
     val selectedClassLevel by viewModel.selectedClassLevel.collectAsStateWithLifecycle()
     val books by viewModel.currentClassBooks.collectAsStateWithLifecycle()
     val availableSubjects by viewModel.availableSubjects.collectAsStateWithLifecycle()
-    val selectedSubject by viewModel.selectedSubjectFilter.collectAsStateWithLifecycle()
-    val selectedBookType by viewModel.selectedBookTypeFilter.collectAsStateWithLifecycle()
+    val selectedSubjects by viewModel.selectedSubjectsFilter.collectAsStateWithLifecycle()
+    val selectedBookTypes by viewModel.selectedBookTypesFilter.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     var showDetailsDialogForBook by remember { mutableStateOf<BookEntity?>(null) }
@@ -65,8 +69,7 @@ fun BookListScreen(viewModel: StudyViewModel) {
     }
 
     var isFilterExpanded by remember { mutableStateOf(false) }
-    val activeFilterCount = (if (selectedSubject != null && selectedSubject != "All") 1 else 0) +
-            (if (selectedBookType != null) 1 else 0)
+    val activeFilterCount = selectedSubjects.size + selectedBookTypes.size
 
     Scaffold(
         containerColor = Slate50,
@@ -152,10 +155,11 @@ fun BookListScreen(viewModel: StudyViewModel) {
                         ),
                         modifier = Modifier
                             .weight(1f)
+                            .height(52.dp)
                             .testTag("book_list_search_field")
                     )
 
-                    // Filter Button with Badge
+                    // Filter Button with Animated Badge
                     Surface(
                         onClick = { isFilterExpanded = !isFilterExpanded },
                         shape = RoundedCornerShape(16.dp),
@@ -169,17 +173,17 @@ fun BookListScreen(viewModel: StudyViewModel) {
                             .testTag("book_list_filter_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Tune,
+                                imageVector = if (isFilterExpanded) Icons.Default.Close else Icons.Default.Tune,
                                 contentDescription = "Filter",
                                 tint = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate700,
                                 modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Filter",
                                 style = MaterialTheme.typography.labelLarge.copy(
@@ -188,20 +192,26 @@ fun BookListScreen(viewModel: StudyViewModel) {
                                     color = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate800
                                 )
                             )
-                            if (activeFilterCount > 0) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    color = if (isFilterExpanded) Color.White else Emerald600,
-                                    shape = CircleShape,
-                                    modifier = Modifier.size(18.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = "$activeFilterCount",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = if (isFilterExpanded) Emerald700 else Color.White
-                                        )
+                            AnimatedVisibility(
+                                visible = activeFilterCount > 0,
+                                enter = fadeIn() + scaleIn(),
+                                exit = fadeOut() + scaleOut()
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        color = if (isFilterExpanded) Color.White else Emerald800,
+                                        shape = CircleShape,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = "$activeFilterCount",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (isFilterExpanded) Emerald700 else Color.White
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -209,93 +219,279 @@ fun BookListScreen(viewModel: StudyViewModel) {
                     }
                 }
 
-                // Collapsible Filter Panel
-                AnimatedVisibility(visible = isFilterExpanded) {
+                // Collapsed Active Filter Chips Strip (allows removing individual filters instantly)
+                AnimatedVisibility(
+                    visible = !isFilterExpanded && activeFilterCount > 0,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            Text(
+                                text = "Active:",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate500,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                        items(selectedBookTypes.toList()) { type ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = type.badgeColor.copy(alpha = 0.12f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, type.badgeColor.copy(alpha = 0.4f)),
+                                onClick = { viewModel.toggleBookTypeFilter(type) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(type.badgeColor)
+                                    )
+                                    Text(
+                                        text = type.displayName,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = type.badgeColor
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        tint = type.badgeColor,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                        }
+                        items(selectedSubjects.toList()) { subject ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Emerald50,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald400),
+                                onClick = { viewModel.toggleSubjectFilter(subject) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = subject,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Emerald700
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        tint = Emerald700,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            TextButton(
+                                onClick = { viewModel.clearAllFilters() },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Clear All",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Emerald700
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Collapsible Full Filter Panel with Multi-Select Options
+                AnimatedVisibility(
+                    visible = isFilterExpanded,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Subject Filter Chips
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp)
-                        ) {
-                            items(availableSubjects) { subject ->
-                                val isSelected = selectedSubject == subject
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.selectedSubjectFilter.value = subject },
-                                    label = {
-                                        Text(
-                                            subject,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 12.sp
+                        // 1. Material Type Multi-Select (Guides, Textbooks, Notes, Solved Papers)
+                        if (selectedClassLevel != 0) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "MATERIAL TYPE (Select one or multiple)",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Slate600,
+                                            fontSize = 10.sp,
+                                            letterSpacing = 0.5.sp
                                         )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Emerald600,
-                                        selectedLabelColor = Color.White,
-                                        containerColor = Slate100,
-                                        labelColor = Slate700
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = isSelected,
-                                        borderColor = if (isSelected) Emerald600 else Slate200
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.testTag("subject_chip_$subject")
-                                )
+                                    )
+                                    if (selectedBookTypes.isNotEmpty()) {
+                                        Text(
+                                            text = "${selectedBookTypes.size} selected",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Emerald700,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 10.sp
+                                            )
+                                        )
+                                    }
+                                }
+
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) {
+                                    item {
+                                        val isAllSelected = selectedBookTypes.isEmpty()
+                                        FilterChip(
+                                            selected = isAllSelected,
+                                            onClick = { viewModel.toggleBookTypeFilter(null) },
+                                            label = { Text("All Types", fontSize = 12.sp, fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Medium) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Slate800,
+                                                selectedLabelColor = Color.White,
+                                                containerColor = Slate100,
+                                                labelColor = Slate700
+                                            ),
+                                            border = FilterChipDefaults.filterChipBorder(
+                                                enabled = true,
+                                                selected = isAllSelected,
+                                                borderColor = if (isAllSelected) Slate800 else Slate200
+                                            ),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+
+                                    items(BookType.values()) { type ->
+                                        val isSelected = selectedBookTypes.contains(type)
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.toggleBookTypeFilter(type) },
+                                            label = {
+                                                Text(
+                                                    type.displayName,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            },
+                                            leadingIcon = {
+                                                if (isSelected) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(8.dp)
+                                                            .clip(CircleShape)
+                                                            .background(type.badgeColor)
+                                                    )
+                                                }
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = type.badgeColor,
+                                                selectedLabelColor = Color.White,
+                                                containerColor = Slate100,
+                                                labelColor = Slate700
+                                            ),
+                                            border = FilterChipDefaults.filterChipBorder(
+                                                enabled = true,
+                                                selected = isSelected,
+                                                borderColor = if (isSelected) type.badgeColor else Slate200
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.testTag("type_chip_${type.name}")
+                                        )
+                                    }
+                                }
                             }
                         }
 
-                        // Book Type Chips (All Types, Textbook, Guide & Keybook, etc.)
-                        // Removed/hidden when in Grammar section (selectedClassLevel == 0)
-                        if (selectedClassLevel != 0) {
+                        // 2. Subject Multi-Select
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "SUBJECTS (Select one or multiple)",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Slate600,
+                                        fontSize = 10.sp,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                )
+                                if (selectedSubjects.isNotEmpty()) {
+                                    Text(
+                                        text = "${selectedSubjects.size} selected",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Emerald700,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        )
+                                    )
+                                }
+                            }
+
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 contentPadding = PaddingValues(horizontal = 2.dp)
                             ) {
-                                item {
-                                    FilterChip(
-                                        selected = selectedBookType == null,
-                                        onClick = { viewModel.selectedBookTypeFilter.value = null },
-                                        label = { Text("All Types", fontSize = 12.sp) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Slate800,
-                                            selectedLabelColor = Color.White,
-                                            containerColor = Slate100,
-                                            labelColor = Slate700
-                                        ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = selectedBookType == null,
-                                            borderColor = if (selectedBookType == null) Slate800 else Slate200
-                                        ),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                }
+                                items(availableSubjects) { subject ->
+                                    val isSelected = if (subject == "All") {
+                                        selectedSubjects.isEmpty()
+                                    } else {
+                                        selectedSubjects.contains(subject)
+                                    }
 
-                                items(BookType.values()) { type ->
-                                    val isSelected = selectedBookType == type
                                     FilterChip(
                                         selected = isSelected,
-                                        onClick = {
-                                            viewModel.selectedBookTypeFilter.value = if (isSelected) null else type
-                                        },
-                                        label = { Text(type.displayName, fontSize = 12.sp) },
-                                        leadingIcon = {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(8.dp)
-                                                    .clip(CircleShape)
-                                                    .background(if (isSelected) Color.White else type.badgeColor)
+                                        onClick = { viewModel.toggleSubjectFilter(subject) },
+                                        leadingIcon = if (isSelected && subject != "All") {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        } else null,
+                                        label = {
+                                            Text(
+                                                subject,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 12.sp
                                             )
                                         },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = type.badgeColor,
+                                            selectedContainerColor = Emerald600,
                                             selectedLabelColor = Color.White,
                                             containerColor = Slate100,
                                             labelColor = Slate700
@@ -303,41 +499,65 @@ fun BookListScreen(viewModel: StudyViewModel) {
                                         border = FilterChipDefaults.filterChipBorder(
                                             enabled = true,
                                             selected = isSelected,
-                                            borderColor = if (isSelected) type.badgeColor else Slate200
+                                            borderColor = if (isSelected) Emerald600 else Slate200
                                         ),
-                                        shape = RoundedCornerShape(12.dp)
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.testTag("subject_chip_$subject")
                                     )
                                 }
                             }
                         }
 
-                        // Reset filters action if any filter is active
-                        if (activeFilterCount > 0) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
+                        // Filter Actions Row (Reset & Apply)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (activeFilterCount > 0) {
                                 TextButton(
-                                    onClick = {
-                                        viewModel.selectedSubjectFilter.value = "All"
-                                        viewModel.selectedBookTypeFilter.value = null
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    onClick = { viewModel.clearAllFilters() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
                                         contentDescription = null,
                                         modifier = Modifier.size(14.dp),
-                                        tint = Emerald700
+                                        tint = Slate600
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        "Reset Filters",
+                                        "Reset All ($activeFilterCount)",
                                         fontSize = 12.sp,
-                                        color = Emerald700,
+                                        color = Slate700,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                            } else {
+                                Spacer(modifier = Modifier.width(1.dp))
+                            }
+
+                            Button(
+                                onClick = { isFilterExpanded = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Apply & Close",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
                             }
                         }
                     }
@@ -410,8 +630,7 @@ fun BookListScreen(viewModel: StudyViewModel) {
                         Spacer(modifier = Modifier.height(16.dp))
                         OutlinedButton(
                             onClick = {
-                                viewModel.selectedSubjectFilter.value = "All"
-                                viewModel.selectedBookTypeFilter.value = null
+                                viewModel.clearAllFilters()
                                 viewModel.searchQuery.value = ""
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -419,32 +638,6 @@ fun BookListScreen(viewModel: StudyViewModel) {
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Emerald600)
                         ) {
                             Text("Reset Filters", fontWeight = FontWeight.Bold)
-                        }
-
-                        if (selectedClassLevel == 0) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color.White,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "SPONSORED",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Slate400,
-                                        letterSpacing = 1.sp
-                                    )
-                                    AdsterraBannerAd()
-                                }
-                            }
                         }
                     }
                 }
@@ -456,7 +649,7 @@ fun BookListScreen(viewModel: StudyViewModel) {
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(top = 14.dp, bottom = 32.dp)
                 ) {
-                    itemsIndexed(books, key = { _, book -> book.id }) { index, book ->
+                    itemsIndexed(books, key = { _, book -> book.id }) { _, book ->
                         BookCardItem(
                             book = book,
                             provinceColor = selectedProvince.primaryColor,
@@ -471,36 +664,6 @@ fun BookListScreen(viewModel: StudyViewModel) {
                             onToggleBookmark = { viewModel.toggleBookmark(book) },
                             onShowDetails = { showDetailsDialogForBook = book }
                         )
-
-                        // In Grammar section: insert in-feed banner ads every 2 books
-                        if (selectedClassLevel == 0 && (index + 1) % 2 == 0) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color.White,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                                shadowElevation = 1.dp
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "SPONSORED EDUCATION PARTNER",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Slate400,
-                                        letterSpacing = 1.sp,
-                                        modifier = Modifier.padding(bottom = 2.dp)
-                                    )
-                                    AdsterraBannerAd()
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -595,6 +758,7 @@ fun BookCardItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier.weight(1f),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -610,6 +774,9 @@ fun BookCardItem(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 10.sp
                                     ),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
@@ -625,15 +792,20 @@ fun BookCardItem(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 10.sp
                                     ),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
 
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         IconButton(
                             onClick = onToggleBookmark,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
                                 .background(Slate50)
                         ) {
@@ -757,7 +929,7 @@ fun BookCardItem(
             // Action Buttons Row: Open (Read) / Download
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Downloaded status indicator or download button
@@ -766,10 +938,12 @@ fun BookCardItem(
                         color = Emerald50,
                         border = androidx.compose.foundation.BorderStroke(1.dp, Emerald200),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 42.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
@@ -777,16 +951,19 @@ fun BookCardItem(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 tint = Emerald700,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "Saved Offline",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     color = Emerald800,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
-                                )
+                                ),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -798,8 +975,10 @@ fun BookCardItem(
                             contentColor = Emerald600
                         ),
                         border = androidx.compose.foundation.BorderStroke(1.5.dp, Emerald600),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                         modifier = Modifier
                             .weight(1f)
+                            .heightIn(min = 42.dp)
                             .testTag("download_button_${book.id}")
                     ) {
                         Icon(
@@ -807,10 +986,13 @@ fun BookCardItem(
                             contentDescription = "Download PDF",
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = "Download",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -823,8 +1005,10 @@ fun BookCardItem(
                         containerColor = Emerald600,
                         contentColor = Color.White
                     ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                     modifier = Modifier
                         .weight(1f)
+                        .heightIn(min = 42.dp)
                         .testTag("read_button_${book.id}")
                 ) {
                     Icon(
@@ -832,10 +1016,13 @@ fun BookCardItem(
                         contentDescription = "Open In-App Reader",
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "Read Now",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -843,7 +1030,7 @@ fun BookCardItem(
                 IconButton(
                     onClick = onShowDetails,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(Slate100)
                 ) {
@@ -875,7 +1062,9 @@ fun BookDetailsDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Book Cover
@@ -929,7 +1118,9 @@ fun BookDetailsDialog(
                 )
                 Text(
                     text = "Direct Link: ${book.fileLink}",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
+                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 if (book.fileLink.isNotBlank()) {
@@ -951,7 +1142,13 @@ fun BookDetailsDialog(
                     ) {
                         Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Open Direct Link in Google Drive / Browser", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Open in Google Drive / Browser",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
 
@@ -969,32 +1166,6 @@ fun BookDetailsDialog(
                         ),
                         modifier = Modifier.padding(10.dp)
                     )
-                }
-
-                if (book.classLevel == 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Surface(
-                        color = Slate50,
-                        shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "SPONSORED EDUCATION PARTNER",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate400,
-                                letterSpacing = 1.sp
-                            )
-                            AdsterraBannerAd()
-                        }
-                    }
                 }
             }
         },

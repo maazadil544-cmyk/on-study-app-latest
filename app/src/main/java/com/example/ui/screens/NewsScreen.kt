@@ -21,6 +21,7 @@ import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -234,7 +235,8 @@ fun NewsScreen(viewModel: StudyViewModel) {
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = categoryBg
+                                    color = categoryBg,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -253,10 +255,14 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                                 color = categoryColor,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 11.sp
-                                            )
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (isPinned) {
@@ -283,7 +289,9 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                                         fontWeight = FontWeight.Black,
                                                         fontSize = 9.sp,
                                                         letterSpacing = 0.5.sp
-                                                    )
+                                                    ),
+                                                    maxLines = 1,
+                                                    softWrap = false
                                                 )
                                             }
                                         }
@@ -303,10 +311,12 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                                     fontSize = 9.sp,
                                                     letterSpacing = 0.5.sp
                                                 ),
+                                                maxLines = 1,
+                                                softWrap = false,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                     }
 
                                     Text(
@@ -315,7 +325,9 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                             color = Slate400,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -365,7 +377,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                         modifier = Modifier
-                                            .height(34.dp)
+                                            .heightIn(min = 36.dp)
                                             .testTag("pin_news_button_${item.id}")
                                     ) {
                                         Icon(
@@ -378,7 +390,9 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                         Text(
                                             text = if (isPinned) "Pinned" else "Pin",
                                             fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
 
@@ -412,7 +426,7 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                         modifier = Modifier
-                                            .height(34.dp)
+                                            .heightIn(min = 36.dp)
                                             .testTag("share_news_button_${item.id}")
                                     ) {
                                         Icon(
@@ -425,7 +439,9 @@ fun NewsScreen(viewModel: StudyViewModel) {
                                         Text(
                                             text = "Share",
                                             fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
                                 }

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -141,9 +142,11 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 19.sp,
+                                    fontSize = 18.sp,
                                     letterSpacing = (-0.3).sp
-                                )
+                                ),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
@@ -152,7 +155,8 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                                     color = Color.White.copy(alpha = 0.85f),
                                     fontSize = 12.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -169,6 +173,8 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
                                 ),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
@@ -232,6 +238,7 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
 
                         Column(modifier = Modifier.weight(1f)) {
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -239,9 +246,12 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                                     text = "Grammar & Composition",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
+                                        fontSize = 15.5.sp,
                                         color = Slate900
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
                                 Surface(
                                     color = selectedProvince.primaryColor.copy(alpha = 0.12f),
@@ -254,6 +264,8 @@ fun ClassSelectScreen(viewModel: StudyViewModel) {
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 10.sp
                                         ),
+                                        maxLines = 1,
+                                        softWrap = false,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
@@ -396,18 +408,18 @@ fun ClassCardsGrid(
                         ),
                         modifier = Modifier
                             .weight(1f)
-                            .height(96.dp)
+                            .heightIn(min = 92.dp)
                             .testTag("class_card_$classLevel")
                     ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(52.dp)
+                                    .size(50.dp)
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(province.containerColor),
                                 contentAlignment = Alignment.Center
@@ -444,14 +456,18 @@ fun ClassCardsGrid(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
                                         color = Slate900
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = if (booksForClass > 0) "$booksForClass Books" else "Available",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Slate500,
                                         fontSize = 11.sp
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 

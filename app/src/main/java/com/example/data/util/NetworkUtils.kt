@@ -61,7 +61,11 @@ object NetworkUtils {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
 
-        connectivityManager.registerNetworkCallback(request, callback)
+        try {
+            connectivityManager.registerNetworkCallback(request, callback)
+        } catch (e: Exception) {
+            trySend(isOnline(context))
+        }
 
         awaitClose {
             try {

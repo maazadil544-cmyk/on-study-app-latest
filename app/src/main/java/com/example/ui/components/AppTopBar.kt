@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -72,7 +73,9 @@ fun AppTopBar(
                                     fontSize = 20.sp,
                                     letterSpacing = (-0.5).sp,
                                     color = Emerald900
-                                )
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "All Boards • KPK • Punjab • Sindh • Balochistan",
@@ -80,7 +83,9 @@ fun AppTopBar(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Slate600
-                                )
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -94,7 +99,8 @@ fun AppTopBar(
                                 letterSpacing = (-0.2).sp,
                                 color = Slate900
                             ),
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         subtitle?.let {
                             Text(
@@ -103,7 +109,8 @@ fun AppTopBar(
                                     color = Slate600,
                                     fontSize = 12.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

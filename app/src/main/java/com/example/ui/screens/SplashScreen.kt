@@ -46,7 +46,7 @@ fun SplashScreen(viewModel: StudyViewModel) {
     )
 
     LaunchedEffect(Unit) {
-        delay(1200)
+        delay(450)
         if (viewModel.isAdminLoggedIn.value) {
             viewModel.navigateTo(Screen.ADMIN_PANEL, addToBackStack = false)
         } else if (viewModel.isUserLoggedIn.value) {

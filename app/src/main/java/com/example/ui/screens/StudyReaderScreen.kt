@@ -22,6 +22,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import com.example.adsterra.AdsterraBannerAd
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -59,6 +60,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -236,8 +238,8 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
     }
 
     val currentBook = book!!
-    val embedUrl = remember(currentBook.fileLink) {
-        viewModel.getEmbedViewUrl(currentBook.fileLink)
+    val embedUrl = remember(currentBook.fileLink, currentPage) {
+        viewModel.getEmbedViewUrl(currentBook.fileLink, currentPage)
     }
 
     // Load SafePdfDocumentRenderer directly and synchronously when local file is present
@@ -276,23 +278,46 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
     val pdfTotalPages = pdfRendererSession?.pageCount?.coerceAtLeast(1)
         ?: currentBook.totalPages.coerceAtLeast(1)
 
-    val listState = rememberLazyListState()
+    // Initialize listState directly with target page to prevent jumping from Page 1
+    val initialTargetIndex = remember(currentBook.id, currentPage) {
+        (currentPage - 1).coerceAtLeast(0)
+    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialTargetIndex)
 
-    // Sync current page based on list scrolling in vertical multi-page view
-    LaunchedEffect(listState.firstVisibleItemIndex) {
-        if (pdfRendererSession != null && pdfRendererSession!!.pageCount > 0) {
-            val page = listState.firstVisibleItemIndex + 1
-            if (page != currentPage) {
-                viewModel.setReaderPage(page)
+    // Sync current page based on list scrolling ONLY when the user is actively dragging/scrolling
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            snapshotFlow { listState.firstVisibleItemIndex }
+                .collect { idx ->
+                    if (pdfRendererSession != null && pdfRendererSession!!.pageCount > 0) {
+                        val page = idx + 1
+                        if (page != currentPage) {
+                            viewModel.setReaderPage(page)
+                        }
+                    }
+                }
+        }
+    }
+
+    // Smoothly scroll to target page when page changes or book changes
+    LaunchedEffect(currentBook.id, currentPage) {
+        if (currentPage > 0) {
+            val total = pdfRendererSession?.pageCount ?: pdfTotalPages
+            val targetIdx = (currentPage - 1).coerceIn(0, (total - 1).coerceAtLeast(0))
+            if (listState.firstVisibleItemIndex != targetIdx && !listState.isScrollInProgress) {
+                listState.scrollToItem(targetIdx)
             }
         }
     }
 
-    // Scroll to page if page changed externally (e.g. from bookmark)
-    LaunchedEffect(currentPage) {
-        val targetIdx = (currentPage - 1).coerceIn(0, (pdfTotalPages - 1).coerceAtLeast(0))
-        if (listState.firstVisibleItemIndex != targetIdx && !listState.isScrollInProgress) {
-            listState.scrollToItem(targetIdx)
+    // Secondary scroll effect when pdfRendererSession pageCount finishes loading
+    LaunchedEffect(pdfRendererSession?.pageCount) {
+        val total = pdfRendererSession?.pageCount ?: 0
+        if (total > 0 && currentPage > 0) {
+            val targetIdx = (currentPage - 1).coerceIn(0, total - 1)
+            if (listState.firstVisibleItemIndex != targetIdx && !listState.isScrollInProgress) {
+                listState.scrollToItem(targetIdx)
+            }
         }
     }
 
@@ -308,7 +333,7 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
             if (!isFullScreenMode) {
                 TopAppBar(
                     title = {
-                        Column {
+                        Column(modifier = Modifier.padding(end = 4.dp)) {
                             Text(
                                 text = currentBook.title,
                                 style = MaterialTheme.typography.titleMedium.copy(
@@ -316,20 +341,22 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                     color = Slate900,
                                     fontSize = 15.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = if (displayMode == ReaderDisplayMode.GOOGLE_DRIVE_ONLINE) {
                                     "Google Drive • Class ${currentBook.classLevel} • ${currentBook.provinceCode.uppercase()}"
                                 } else {
-                                    "Class ${currentBook.classLevel} • ${currentBook.provinceCode.uppercase()} • Page $currentPage of $pdfTotalPages"
+                                    "Class ${currentBook.classLevel} • ${currentBook.provinceCode.uppercase()} • Pg $currentPage/$pdfTotalPages"
                                 },
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.sp,
                                     color = if (displayMode == ReaderDisplayMode.GOOGLE_DRIVE_ONLINE) Emerald700 else Slate500,
                                     fontWeight = FontWeight.SemiBold
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     },
@@ -338,11 +365,12 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                             onClick = { viewModel.navigateBack() },
                             modifier = Modifier
                                 .padding(start = 4.dp)
+                                .size(38.dp)
                                 .testTag("reader_back_button")
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
                                     .background(Slate100),
                                 contentAlignment = Alignment.Center
@@ -364,20 +392,22 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                     "Mujhe ${currentBook.title} (${currentBook.subject}, Class ${currentBook.classLevel}) ke barey mein help chahiye."
                                 )
                             },
-                            modifier = Modifier.testTag("reader_ask_assistiq_btn")
+                            modifier = Modifier
+                                .size(38.dp)
+                                .testTag("reader_ask_assistiq_btn")
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = Emerald50,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Emerald200),
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Filled.AutoAwesome,
                                         contentDescription = "Ask AssistIQ",
                                         tint = Emerald700,
-                                        modifier = Modifier.size(19.dp)
+                                        modifier = Modifier.size(17.dp)
                                     )
                                 }
                             }
@@ -386,20 +416,22 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                         // 1. Create Notes Button
                         IconButton(
                             onClick = { showAddNoteDialog = true },
-                            modifier = Modifier.testTag("reader_create_notes_btn")
+                            modifier = Modifier
+                                .size(38.dp)
+                                .testTag("reader_create_notes_btn")
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = Color(0xFFEFF6FF),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Outlined.EditNote,
                                         contentDescription = "Create Notes",
                                         tint = Color(0xFF1D4ED8),
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -408,20 +440,22 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                         // 2. Create Bookmark Button (Full Details)
                         IconButton(
                             onClick = { showAddBookmarkDialog = true },
-                            modifier = Modifier.testTag("reader_create_bookmark_btn")
+                            modifier = Modifier
+                                .size(38.dp)
+                                .testTag("reader_create_bookmark_btn")
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = Color(0xFFFEF3C7),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Outlined.BookmarkAdd,
                                         contentDescription = "Create Bookmark",
                                         tint = Color(0xFFD97706),
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -430,20 +464,22 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                         // 3. Open in Full Screen Button (Vertical Scroll PDF)
                         IconButton(
                             onClick = { isFullScreenMode = true },
-                            modifier = Modifier.testTag("reader_fullscreen_btn")
+                            modifier = Modifier
+                                .size(38.dp)
+                                .testTag("reader_fullscreen_btn")
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = Emerald50,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Emerald200),
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.Fullscreen,
                                         contentDescription = "Open in Full Screen",
                                         tint = Emerald700,
-                                        modifier = Modifier.size(22.dp)
+                                        modifier = Modifier.size(19.dp)
                                     )
                                 }
                             }
@@ -453,11 +489,13 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                         Box {
                             IconButton(
                                 onClick = { showMoreMenu = true },
-                                modifier = Modifier.testTag("reader_more_options_btn")
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .testTag("reader_more_options_btn")
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(36.dp)
+                                        .size(32.dp)
                                         .clip(CircleShape)
                                         .background(Slate100),
                                     contentAlignment = Alignment.Center
@@ -466,7 +504,7 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                         imageVector = Icons.Default.MoreVert,
                                         contentDescription = "More Options",
                                         tint = Slate700,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(17.dp)
                                     )
                                 }
                             }
@@ -547,6 +585,7 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
+                                    modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
@@ -561,9 +600,13 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Slate800
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(
@@ -574,7 +617,13 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                     ) {
                                         Icon(Icons.Default.Fullscreen, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Full Screen", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            "Full Screen",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
                                     }
                                 }
                             }
@@ -601,7 +650,7 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 FilledTonalButton(
@@ -614,34 +663,41 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                     },
                                     enabled = currentPage > 1,
                                     shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = Slate100,
                                         contentColor = Slate800
                                     )
                                 ) {
                                     Icon(Icons.Default.ChevronLeft, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Prev", fontWeight = FontWeight.SemiBold)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text("Prev", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                                 }
 
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
                                     color = Emerald50,
                                     border = androidx.compose.foundation.BorderStroke(1.dp, Emerald200),
-                                    modifier = Modifier.clickable { isFullScreenMode = true }
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { isFullScreenMode = true }
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
                                     ) {
                                         Text(
                                             text = "Page $currentPage / $pdfTotalPages",
                                             style = MaterialTheme.typography.labelMedium.copy(
                                                 fontWeight = FontWeight.Bold,
                                                 color = Emerald800
-                                            )
+                                            ),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.Default.Fullscreen, contentDescription = null, tint = Emerald700, modifier = Modifier.size(14.dp))
                                     }
                                 }
@@ -656,13 +712,14 @@ fun StudyReaderScreen(viewModel: StudyViewModel) {
                                     },
                                     enabled = currentPage < pdfTotalPages,
                                     shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = Emerald600,
                                         contentColor = Color.White
                                     )
                                 ) {
-                                    Text("Next", fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Next", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                    Spacer(modifier = Modifier.width(2.dp))
                                     Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
                                 }
                             }

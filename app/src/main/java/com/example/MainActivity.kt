@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -86,7 +87,7 @@ fun StudyApp(viewModel: StudyViewModel, onFinish: () -> Unit) {
         ) {
             AnimatedContent(
                 targetState = currentScreen,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                transitionSpec = { fadeIn(animationSpec = tween(140)) togetherWith fadeOut(animationSpec = tween(100)) },
                 label = "ScreenTransition"
             ) { screen ->
                 when (screen) {

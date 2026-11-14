@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,6 +47,7 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
     val generalBooks by viewModel.generalBooks.collectAsStateWithLifecycle()
     val availableSubjects by viewModel.generalSubjects.collectAsStateWithLifecycle()
     val selectedSubject by viewModel.selectedSubjectFilter.collectAsStateWithLifecycle()
+    val selectedSubjects by viewModel.selectedSubjectsFilter.collectAsStateWithLifecycle()
     val selectedProvinceCode by viewModel.selectedGeneralProvince.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -58,16 +60,20 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
     var selectedBookForDialog by remember { mutableStateOf<BookEntity?>(null) }
     var isFilterExpanded by remember { mutableStateOf(false) }
     val activeFilterCount = (if (!selectedProvinceCode.equals("all", ignoreCase = true)) 1 else 0) +
-            (if (selectedSubject != null && selectedSubject != "All") 1 else 0)
+            (if (selectedSubjects.isNotEmpty()) selectedSubjects.size else (if (selectedSubject != null && selectedSubject != "All") 1 else 0))
 
-    val filteredBooks = remember(generalBooks, selectedProvinceCode, selectedSubject, searchQuery) {
+    val filteredBooks = remember(generalBooks, selectedProvinceCode, selectedSubject, selectedSubjects, searchQuery) {
         generalBooks.filter { book ->
             val matchProvince = when (selectedProvinceCode.lowercase()) {
                 "all" -> true
                 else -> book.provinceCode.equals(selectedProvinceCode, ignoreCase = true) ||
                         book.provinceCode.equals("general", ignoreCase = true)
             }
-            val matchSubject = selectedSubject == null || selectedSubject == "All" || book.subject.equals(selectedSubject, ignoreCase = true)
+            val matchSubject = if (selectedSubjects.isNotEmpty()) {
+                selectedSubjects.any { it.equals(book.subject, ignoreCase = true) }
+            } else {
+                selectedSubject == null || selectedSubject == "All" || book.subject.equals(selectedSubject, ignoreCase = true)
+            }
             val matchQuery = searchQuery.isBlank() ||
                     book.title.contains(searchQuery, ignoreCase = true) ||
                     book.subject.contains(searchQuery, ignoreCase = true) ||
@@ -170,10 +176,11 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                         ),
                         modifier = Modifier
                             .weight(1f)
+                            .height(52.dp)
                             .testTag("general_books_search_input")
                     )
 
-                    // Filter Button with Badge
+                    // Filter Button with Animated Badge
                     Surface(
                         onClick = { isFilterExpanded = !isFilterExpanded },
                         shape = RoundedCornerShape(16.dp),
@@ -187,17 +194,17 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                             .testTag("general_books_filter_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Tune,
+                                imageVector = if (isFilterExpanded) Icons.Default.Close else Icons.Default.Tune,
                                 contentDescription = "Filter",
                                 tint = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate700,
                                 modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Filter",
                                 style = MaterialTheme.typography.labelLarge.copy(
@@ -206,20 +213,26 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                                     color = if (isFilterExpanded || activeFilterCount > 0) Color.White else Slate800
                                 )
                             )
-                            if (activeFilterCount > 0) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    color = if (isFilterExpanded) Color.White else Emerald600,
-                                    shape = CircleShape,
-                                    modifier = Modifier.size(18.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = "$activeFilterCount",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = if (isFilterExpanded) Emerald700 else Color.White
-                                        )
+                            AnimatedVisibility(
+                                visible = activeFilterCount > 0,
+                                enter = fadeIn() + scaleIn(),
+                                exit = fadeOut() + scaleOut()
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        color = if (isFilterExpanded) Color.White else Emerald800,
+                                        shape = CircleShape,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = "$activeFilterCount",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (isFilterExpanded) Emerald700 else Color.White
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -227,117 +240,302 @@ fun GeneralBooksScreen(viewModel: StudyViewModel) {
                     }
                 }
 
+                // Collapsed Active Filter Chips Strip
+                AnimatedVisibility(
+                    visible = !isFilterExpanded && activeFilterCount > 0,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            Text(
+                                text = "Active:",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate500,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                        if (!selectedProvinceCode.equals("all", ignoreCase = true)) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFF0FDFA),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0D9488)),
+                                    onClick = { viewModel.selectedGeneralProvince.value = "all" }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = selectedProvinceCode.uppercase(),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF0D9488)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Remove",
+                                            tint = Color(0xFF0D9488),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        items(selectedSubjects.toList()) { subject ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Emerald50,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald400),
+                                onClick = { viewModel.toggleSubjectFilter(subject) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = subject,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Emerald700
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        tint = Emerald700,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            TextButton(
+                                onClick = {
+                                    viewModel.selectedGeneralProvince.value = "all"
+                                    viewModel.clearAllFilters()
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Clear All",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Emerald700
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Collapsible Filter Panel
-                AnimatedVisibility(visible = isFilterExpanded) {
+                AnimatedVisibility(
+                    visible = isFilterExpanded,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         // Province Selector Chips for General Library
-                        val provinceOptions = listOf(
-                            "all" to "All Libraries",
-                            "kpk" to "KPK (KPTB)",
-                            "punjab" to "Punjab (PCTB)",
-                            "sindh" to "Sindh (STBB)",
-                            "balochistan" to "Balochistan (BTBB)"
-                        )
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp)
-                        ) {
-                            items(provinceOptions) { (pCode, pLabel) ->
-                                val isProvSelected = selectedProvinceCode.equals(pCode, ignoreCase = true)
-                                FilterChip(
-                                    selected = isProvSelected,
-                                    onClick = {
-                                        viewModel.selectedGeneralProvince.value = pCode
-                                    },
-                                    label = {
-                                        Text(
-                                            text = pLabel,
-                                            fontWeight = if (isProvSelected) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 12.sp
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFF0D9488),
-                                        selectedLabelColor = Color.White,
-                                        containerColor = Color(0xFFF0FDFA),
-                                        labelColor = Color(0xFF115E59)
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = isProvSelected,
-                                        borderColor = if (isProvSelected) Color(0xFF0D9488) else Color(0xFF99F6E4)
-                                    ),
-                                    modifier = Modifier.testTag("general_province_chip_$pCode")
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "PROVINCIAL CURRICULUM",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Slate600,
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.5.sp
                                 )
-                            }
-                        }
+                            )
+                            val provinceOptions = listOf(
+                                "all" to "All Libraries",
+                                "kpk" to "KPK (KPTB)",
+                                "punjab" to "Punjab (PCTB)",
+                                "sindh" to "Sindh (STBB)",
+                                "balochistan" to "Balochistan (BTBB)"
+                            )
 
-                        // Subject Filter Tabs
-                        if (availableSubjects.size > 1) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 contentPadding = PaddingValues(horizontal = 2.dp)
                             ) {
-                                items(availableSubjects) { subject ->
-                                    val isSelected = (selectedSubject == subject) || (selectedSubject == null && subject == "All")
+                                items(provinceOptions) { (pCode, pLabel) ->
+                                    val isProvSelected = selectedProvinceCode.equals(pCode, ignoreCase = true)
                                     FilterChip(
-                                        selected = isSelected,
-                                        onClick = { viewModel.selectedSubjectFilter.value = if (subject == "All") "All" else subject },
+                                        selected = isProvSelected,
+                                        onClick = {
+                                            viewModel.selectedGeneralProvince.value = pCode
+                                        },
                                         label = {
                                             Text(
-                                                text = subject,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                text = pLabel,
+                                                fontWeight = if (isProvSelected) FontWeight.Bold else FontWeight.Medium,
                                                 fontSize = 12.sp
                                             )
                                         },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Emerald600,
+                                            selectedContainerColor = Color(0xFF0D9488),
                                             selectedLabelColor = Color.White,
-                                            containerColor = Slate100,
-                                            labelColor = Slate700
+                                            containerColor = Color(0xFFF0FDFA),
+                                            labelColor = Color(0xFF115E59)
                                         ),
-                                        border = null,
-                                        modifier = Modifier.testTag("filter_subject_$subject")
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isProvSelected,
+                                            borderColor = if (isProvSelected) Color(0xFF0D9488) else Color(0xFF99F6E4)
+                                        ),
+                                        modifier = Modifier.testTag("general_province_chip_$pCode")
                                     )
                                 }
                             }
                         }
 
-                        // Reset filters action if any filter is active
-                        if (activeFilterCount > 0) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
+                        // Subject Filter Tabs (Multi-Select)
+                        if (availableSubjects.size > 1) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "TOPICS & SUBJECTS (Select multiple)",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Slate600,
+                                            fontSize = 10.sp,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    )
+                                    if (selectedSubjects.isNotEmpty()) {
+                                        Text(
+                                            text = "${selectedSubjects.size} selected",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Emerald700,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 10.sp
+                                            )
+                                        )
+                                    }
+                                }
+
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) {
+                                    items(availableSubjects) { subject ->
+                                        val isSelected = if (subject == "All") {
+                                            selectedSubjects.isEmpty()
+                                        } else {
+                                            selectedSubjects.contains(subject)
+                                        }
+
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.toggleSubjectFilter(subject) },
+                                            leadingIcon = if (isSelected && subject != "All") {
+                                                {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                }
+                                            } else null,
+                                            label = {
+                                                Text(
+                                                    text = subject,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    fontSize = 12.sp
+                                                )
+                                            },
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Emerald600,
+                                                selectedLabelColor = Color.White,
+                                                containerColor = Slate100,
+                                                labelColor = Slate700
+                                            ),
+                                            border = FilterChipDefaults.filterChipBorder(
+                                                enabled = true,
+                                                selected = isSelected,
+                                                borderColor = if (isSelected) Emerald600 else Slate200
+                                            ),
+                                            modifier = Modifier.testTag("filter_subject_$subject")
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Filter Actions Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (activeFilterCount > 0) {
                                 TextButton(
                                     onClick = {
                                         viewModel.selectedGeneralProvince.value = "all"
-                                        viewModel.selectedSubjectFilter.value = "All"
+                                        viewModel.clearAllFilters()
                                     },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
                                         contentDescription = null,
                                         modifier = Modifier.size(14.dp),
-                                        tint = Emerald700
+                                        tint = Slate600
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        "Reset Filters",
+                                        "Reset All ($activeFilterCount)",
                                         fontSize = 12.sp,
-                                        color = Emerald700,
+                                        color = Slate700,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                            } else {
+                                Spacer(modifier = Modifier.width(1.dp))
+                            }
+
+                            Button(
+                                onClick = { isFilterExpanded = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Apply & Close",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
                             }
                         }
                     }
@@ -580,7 +778,8 @@ fun GeneralBookCard(
                     ) {
                         Surface(
                             color = containerBg,
-                            shape = RoundedCornerShape(6.dp)
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.weight(1f, fill = false)
                         ) {
                             Text(
                                 text = book.subject.uppercase(),
@@ -590,11 +789,15 @@ fun GeneralBookCard(
                                     fontSize = 10.sp,
                                     letterSpacing = 0.5.sp
                                 ),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
 
                         if (book.isDownloaded) {
+                            Spacer(modifier = Modifier.width(8.dp))
                             Surface(
                                 color = Emerald50,
                                 shape = RoundedCornerShape(6.dp)
@@ -616,7 +819,9 @@ fun GeneralBookCard(
                                             color = Emerald700,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 9.sp
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -686,9 +891,10 @@ fun GeneralBookCard(
                     onClick = onOpen,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = themeColor),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier
                         .weight(1f)
+                        .heightIn(min = 42.dp)
                         .testTag("read_general_book_${book.id}")
                 ) {
                     Icon(
@@ -702,7 +908,10 @@ fun GeneralBookCard(
                         text = "Read In-App",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = Color.White
+                        color = Color.White,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -715,7 +924,9 @@ fun GeneralBookCard(
                         containerColor = if (book.isDownloaded) Emerald50 else Color.White
                     ),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    modifier = Modifier.testTag("download_general_book_${book.id}")
+                    modifier = Modifier
+                        .heightIn(min = 42.dp)
+                        .testTag("download_general_book_${book.id}")
                 ) {
                     if (book.isDownloading) {
                         CircularProgressIndicator(

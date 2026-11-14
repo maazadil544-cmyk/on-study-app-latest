@@ -63,5 +63,17 @@ class ExampleUnitTest {
         assertEquals("onstudy13@gmail.com", StudyViewModel.ADMIN_EMAIL)
         assertEquals("onstudy13.1311", StudyViewModel.ADMIN_PASSWORD)
     }
+
+    @Test
+    fun assistIqModels_prioritizeFastValidFlashModels() {
+        val fastModels = com.example.data.remote.AssistIqService.FAST_MODELS
+        val detailedModels = com.example.data.remote.AssistIqService.DETAILED_MODELS
+
+        assertTrue(fastModels.isNotEmpty())
+        assertTrue(detailedModels.isNotEmpty())
+        assertTrue(fastModels.first().contains("flash"))
+        assertFalse(fastModels.any { it.contains("3.6") || it.contains("3.7") || it.contains("3.8") })
+    }
 }
+
 

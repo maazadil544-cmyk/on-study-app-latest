@@ -49,11 +49,13 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     val loggedInUsername = MutableStateFlow("")
     val loggedInEmail = MutableStateFlow("")
 
-    // Selection filters
+    // Selection filters (Single and Multiple selection supported)
     val selectedProvince = MutableStateFlow(Province.PUNJAB)
     val selectedClassLevel = MutableStateFlow(10)
     val selectedSubjectFilter = MutableStateFlow<String?>("All")
     val selectedBookTypeFilter = MutableStateFlow<BookType?>(null)
+    val selectedSubjectsFilter = MutableStateFlow<Set<String>>(emptySet())
+    val selectedBookTypesFilter = MutableStateFlow<Set<BookType>>(emptySet())
     val searchQuery = MutableStateFlow("")
 
     // Active Reader State
@@ -168,22 +170,32 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
     private data class FilterCriteria(
         val province: Province,
         val classLevel: Int,
-        val subject: String?,
-        val bookType: BookType?,
+        val subjects: Set<String>,
+        val bookTypes: Set<BookType>,
+        val singleSubject: String?,
+        val singleBookType: BookType?,
         val query: String
     )
 
     private val filterCriteria = combine(
         selectedProvince,
         selectedClassLevel,
-        selectedSubjectFilter,
-        selectedBookTypeFilter,
+        selectedSubjectsFilter,
+        selectedBookTypesFilter,
         searchQuery
-    ) { prov, cls, subject, type, query ->
-        FilterCriteria(prov, cls, subject, type, query)
+    ) { prov, cls, subjects, types, query ->
+        FilterCriteria(
+            province = prov,
+            classLevel = cls,
+            subjects = subjects,
+            bookTypes = types,
+            singleSubject = selectedSubjectFilter.value,
+            singleBookType = selectedBookTypeFilter.value,
+            query = query
+        )
     }
 
-    // Filtered books for current province & class
+    // Filtered books for current province & class with full multi-selection support
     val currentClassBooks: StateFlow<List<BookEntity>> = combine(
         allBooks,
         filterCriteria
@@ -197,9 +209,26 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
                 book.classLevel == filter.classLevel && !isGeneralBook(book)
             }
 
-            val matchSubject = filter.subject == null || filter.subject == "All" || book.subject.equals(filter.subject, ignoreCase = true)
-            val matchType = if (filter.classLevel == 0) true else (filter.bookType == null || book.bookType.equals(filter.bookType.name, ignoreCase = true))
-            val matchQuery = filter.query.isBlank() || book.title.contains(filter.query, ignoreCase = true) || book.subject.contains(filter.query, ignoreCase = true)
+            // Multi-choice subjects matching: If any subjects selected, book must match one of them; else check single fallback
+            val matchSubject = if (filter.subjects.isNotEmpty()) {
+                filter.subjects.any { it.equals(book.subject, ignoreCase = true) }
+            } else {
+                filter.singleSubject == null || filter.singleSubject == "All" || book.subject.equals(filter.singleSubject, ignoreCase = true)
+            }
+
+            // Multi-choice book types matching (e.g. Textbook + Guide together)
+            val matchType = if (filter.classLevel == 0) true else {
+                if (filter.bookTypes.isNotEmpty()) {
+                    filter.bookTypes.any { it.name.equals(book.bookType, ignoreCase = true) }
+                } else {
+                    filter.singleBookType == null || book.bookType.equals(filter.singleBookType.name, ignoreCase = true)
+                }
+            }
+
+            val matchQuery = filter.query.isBlank() ||
+                book.title.contains(filter.query, ignoreCase = true) ||
+                book.subject.contains(filter.query, ignoreCase = true) ||
+                book.publisher.contains(filter.query, ignoreCase = true)
 
             matchProvince && matchClass && matchSubject && matchType && matchQuery
         }
@@ -254,8 +283,50 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         navigateTo(Screen.GENERAL_BOOKS)
     }
 
+    fun toggleSubjectFilter(subject: String) {
+        if (subject == "All") {
+            selectedSubjectsFilter.value = emptySet()
+            selectedSubjectFilter.value = "All"
+        } else {
+            val current = selectedSubjectsFilter.value.toMutableSet()
+            if (current.contains(subject)) {
+                current.remove(subject)
+            } else {
+                current.add(subject)
+            }
+            selectedSubjectsFilter.value = current
+            selectedSubjectFilter.value = if (current.isEmpty()) "All" else current.first()
+        }
+    }
+
+    fun toggleBookTypeFilter(type: BookType?) {
+        if (type == null) {
+            selectedBookTypesFilter.value = emptySet()
+            selectedBookTypeFilter.value = null
+        } else {
+            val current = selectedBookTypesFilter.value.toMutableSet()
+            if (current.contains(type)) {
+                current.remove(type)
+            } else {
+                current.add(type)
+            }
+            selectedBookTypesFilter.value = current
+            selectedBookTypeFilter.value = current.firstOrNull()
+        }
+    }
+
+    fun clearAllFilters() {
+        selectedSubjectsFilter.value = emptySet()
+        selectedBookTypesFilter.value = emptySet()
+        selectedSubjectFilter.value = "All"
+        selectedBookTypeFilter.value = null
+        searchQuery.value = ""
+    }
+
     fun selectClass(classLevel: Int) {
         selectedClassLevel.value = classLevel
+        selectedSubjectsFilter.value = emptySet()
+        selectedBookTypesFilter.value = emptySet()
         selectedSubjectFilter.value = "All"
         selectedBookTypeFilter.value = null
         searchQuery.value = ""
@@ -264,6 +335,8 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectGrammarCategory() {
         selectedClassLevel.value = 0
+        selectedSubjectsFilter.value = emptySet()
+        selectedBookTypesFilter.value = emptySet()
         selectedSubjectFilter.value = "All"
         selectedBookTypeFilter.value = null
         searchQuery.value = ""
@@ -297,7 +370,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun getEmbedViewUrl(rawUrl: String): String = repository.resolveEmbedViewUrl(rawUrl)
+    fun getEmbedViewUrl(rawUrl: String, page: Int = 1): String = repository.resolveEmbedViewUrl(rawUrl, page)
 
     // Actions
     fun downloadBook(book: BookEntity) {
@@ -734,6 +807,13 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val streamingAiReply = MutableStateFlow<String?>(null)
+    val assistIqDetailedMode = MutableStateFlow(false)
+
+    fun setAssistIqDetailedMode(detailed: Boolean) {
+        assistIqDetailedMode.value = detailed
+    }
+
     // --- AssistIQ Actions ---
     fun openAssistIq(prompt: String? = null) {
         if (prompt != null) {
@@ -748,16 +828,57 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             isChatbotThinking.value = true
-            val currentList = chatMessages.value
-            repository.sendChatMessage(trimmed, currentList)
-            isChatbotThinking.value = false
+            streamingAiReply.value = ""
+            try {
+                val currentList = chatMessages.value
+                repository.sendChatMessageStreaming(
+                    userText = trimmed,
+                    history = currentList,
+                    detailedMode = assistIqDetailedMode.value,
+                    onChunk = { partialText ->
+                        streamingAiReply.value = partialText
+                    }
+                )
+            } finally {
+                streamingAiReply.value = null
+                isChatbotThinking.value = false
+            }
+        }
+    }
+
+    fun retryAssistIqPrompt(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank() || isChatbotThinking.value) return
+
+        viewModelScope.launch {
+            isChatbotThinking.value = true
+            streamingAiReply.value = ""
+            try {
+                val refreshedKey = repository.refreshRemoteGeminiApiKey()
+                if (!refreshedKey.isNullOrBlank()) {
+                    currentGeminiApiKey.value = refreshedKey
+                }
+                val currentList = chatMessages.value
+                repository.sendChatMessageStreaming(
+                    userText = trimmed,
+                    history = currentList,
+                    detailedMode = assistIqDetailedMode.value,
+                    onChunk = { partialText ->
+                        streamingAiReply.value = partialText
+                    }
+                )
+            } finally {
+                streamingAiReply.value = null
+                isChatbotThinking.value = false
+            }
         }
     }
 
     fun clearChatHistory() {
         viewModelScope.launch {
+            streamingAiReply.value = null
             repository.clearChatHistory()
-            uiMessage.emit(UiMessage("Chat history reset. Welcome message refreshed."))
+            uiMessage.emit(UiMessage("New chat started."))
         }
     }
 

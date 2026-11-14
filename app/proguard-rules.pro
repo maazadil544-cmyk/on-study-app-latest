@@ -1,21 +1,75 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Optimization & Obfuscation Configuration
+-repackageclasses ''
+-allowaccessmodification
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep line numbers and file names for Play Console crash deobfuscation
+-keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep Room Database and Entities
+-keep class androidx.room.** { *; }
+-dontwarn androidx.room.**
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao class * { *; }
+-keepclassmembers class * {
+    @androidx.room.TypeConverter *;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep Data Models & Entities used in Local DB and JSON serialization
+-keep class com.example.data.local.** { *; }
+-keep class com.example.data.model.** { *; }
+-keepclassmembers class com.example.data.local.** {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers class com.example.data.model.** {
+    <fields>;
+    <init>(...);
+}
+
+# Keep OkHttp & JSON
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
+-dontwarn org.codehaus.mojo.animal_sniffer.*
+
+# Keep Firebase Realtime Database and Google Services
+-keepclassmembers class * {
+    @com.google.firebase.database.PropertyName <fields>;
+    @com.google.firebase.database.IgnoreExtraProperties <fields>;
+    @com.google.firebase.database.Exclude <fields>;
+}
+
+# Keep Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-dontwarn kotlinx.coroutines.**
+
+# Keep WebView JavaScript interfaces (for Adsterra / WebViews)
+-keepattributes JavascriptInterface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepclassmembers class android.webkit.WebView {
+   public *;
+}
+-dontwarn android.webkit.**
+
+# Keep ViewModel constructors for by viewModels() reflection in Release R8 builds
+-keep class * extends androidx.lifecycle.ViewModel {
+    <init>(...);
+}
+-keep class * extends androidx.lifecycle.AndroidViewModel {
+    <init>(...);
+}
+
+# Keep Adsterra JsBridge explicitly
+-keepclassmembers class com.example.adsterra.AdsterraManager$JsBridge {
+    *;
+}
+
+# Compose Rules
+-dontwarn androidx.compose.**
+
+# Coil Image Loader
+-dontwarn coil.**

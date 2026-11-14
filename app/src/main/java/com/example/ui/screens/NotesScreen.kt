@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -172,7 +173,8 @@ fun NotesScreen(viewModel: StudyViewModel) {
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = bgContainer
+                                    color = bgContainer,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 ) {
                                     Text(
                                         text = note.subject ?: "General Note",
@@ -181,9 +183,13 @@ fun NotesScreen(viewModel: StudyViewModel) {
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp
                                         ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     IconButton(
