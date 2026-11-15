@@ -102,6 +102,9 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
         loggedInEmail.value = savedEmail
 
         viewModelScope.launch {
+            if (com.example.data.util.NetworkUtils.isOnline(application)) {
+                launch { repository.warmUpAssistIqConnection() }
+            }
             repository.initializeDataIfNeeded()
             updateStorageUsage()
             repository.refreshRemoteGeminiApiKey()
@@ -345,6 +348,7 @@ class StudyViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshGeminiApiKeyFromCloud() {
         viewModelScope.launch {
+            launch { repository.warmUpAssistIqConnection() }
             val key = repository.refreshRemoteGeminiApiKey()
             if (!key.isNullOrBlank()) {
                 currentGeminiApiKey.value = key

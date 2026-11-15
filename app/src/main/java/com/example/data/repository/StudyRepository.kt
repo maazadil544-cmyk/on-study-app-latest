@@ -26,6 +26,14 @@ class StudyRepository(
 
     val firebaseManager = com.example.data.remote.FirebaseRealtimeDbManager(context)
 
+    init {
+        com.example.data.remote.AssistIqService.init(context)
+    }
+
+    suspend fun warmUpAssistIqConnection() {
+        com.example.data.remote.AssistIqService.warmUpConnection()
+    }
+
     data class SyncResult(
         val success: Boolean,
         val message: String,

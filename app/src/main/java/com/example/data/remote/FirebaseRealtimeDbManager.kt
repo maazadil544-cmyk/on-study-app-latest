@@ -18,10 +18,19 @@ class FirebaseRealtimeDbManager(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("firebase_rtdb_prefs", Context.MODE_PRIVATE)
 
+    private val ipv4FirstDns = object : okhttp3.Dns {
+        override fun lookup(hostname: String): List<java.net.InetAddress> {
+            return okhttp3.Dns.SYSTEM.lookup(hostname).sortedBy { addr ->
+                if (addr is java.net.Inet4Address) 0 else 1
+            }
+        }
+    }
+
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
+        .dns(ipv4FirstDns)
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 

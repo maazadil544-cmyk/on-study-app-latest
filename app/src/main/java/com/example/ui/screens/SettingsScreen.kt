@@ -541,7 +541,10 @@ fun SettingsScreen(viewModel: StudyViewModel) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("ON Study App", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Slate900))
                                 Text("Pakistan Academic Guides & Textbooks (All Boards)", style = MaterialTheme.typography.bodySmall.copy(color = Emerald700, fontSize = 11.sp, fontWeight = FontWeight.Medium))
-                                Text("Version 1.0.0", style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 10.sp))
+                                Text(
+                                    text = "Version V${com.example.BuildConfig.VERSION_CODE} (${com.example.BuildConfig.VERSION_NAME})",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                )
                             }
                         }
 

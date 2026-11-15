@@ -1,25 +1,35 @@
 package com.example.data.remote
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionPool
+import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.net.Inet4Address
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 object AssistIqService {
 
     private const val TAG = "AssistIqService"
+    private const val PREFS_NAME = "assistiq_runtime_prefs"
+    private const val PREF_FAST_MODEL = "cached_fast_model"
+    private const val PREF_DETAILED_MODEL = "cached_detailed_model"
+    private const val PREF_PREFER_DIRECT = "prefer_direct_fallback"
 
-    // Real, low-latency Gemini production models in priority order
+    // Fastest real Gemini production models ordered by lowest TTFT
     internal val FAST_MODELS = listOf(
         "gemini-2.5-flash-lite",
         "gemini-2.5-flash",
@@ -36,6 +46,9 @@ object AssistIqService {
     )
 
     @Volatile
+    private var prefs: SharedPreferences? = null
+
+    @Volatile
     private var cachedWorkingModelFast: String? = null
 
     @Volatile
@@ -44,14 +57,81 @@ object AssistIqService {
     @Volatile
     private var preferNonStreamingFallback: Boolean = false
 
-    // Optimized OkHttpClient with connection pooling & reliable retry
+    @Volatile
+    private var isConnectionWarmedUp: Boolean = false
+
+    fun init(context: Context) {
+        if (prefs != null) return
+        try {
+            val sp = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs = sp
+            cachedWorkingModelFast = sp.getString(PREF_FAST_MODEL, null)?.takeIf { it.isNotBlank() }
+            cachedWorkingModelDetailed = sp.getString(PREF_DETAILED_MODEL, null)?.takeIf { it.isNotBlank() }
+            preferNonStreamingFallback = sp.getBoolean(PREF_PREFER_DIRECT, false)
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to load AssistIQ cache prefs: ${e.message}")
+        }
+    }
+
+    /**
+     * IPv4-first DNS prevents 10-12s IPv6 SYN blackhole stalls common on mobile/fiber ISPs
+     * during the very first HTTPS connection.
+     */
+    private val ipv4FirstDns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            return Dns.SYSTEM.lookup(hostname).sortedBy { addr ->
+                if (addr is Inet4Address) 0 else 1
+            }
+        }
+    }
+
+    // Optimized OkHttpClient: IPv4-first DNS + HTTP/2 multiplexing + fast 5s connect timeout
     private val httpClient = OkHttpClient.Builder()
-        .connectionPool(ConnectionPool(5, 3, TimeUnit.MINUTES))
-        .connectTimeout(15, TimeUnit.SECONDS)
+        .dns(ipv4FirstDns)
+        .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
+        .connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
+        .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
+
+    /**
+     * Pre-warms DNS + TLS 1.3 + HTTP/2 socket to generativelanguage.googleapis.com AND
+     * discovers available Flash models (0 AI tokens) so the very first prompt hits a hot
+     * socket and guaranteed working fastest model immediately.
+     */
+    suspend fun warmUpConnection() = withContext(Dispatchers.IO) {
+        if (isConnectionWarmedUp && cachedWorkingModelFast != null) return@withContext
+        try {
+            val apiKey = getEffectiveApiKey()
+            if (apiKey.isNotBlank() && cachedWorkingModelFast == null) {
+                val available = discoverAvailableFlashModels(apiKey)
+                if (available.isNotEmpty()) {
+                    val bestFast = FAST_MODELS.firstOrNull { available.contains(it) } ?: available.first()
+                    val bestDetailed = DETAILED_MODELS.firstOrNull { available.contains(it) } ?: available.first()
+                    cachedWorkingModelFast = bestFast
+                    cachedWorkingModelDetailed = bestDetailed
+                    prefs?.edit()
+                        ?.putString(PREF_FAST_MODEL, bestFast)
+                        ?.putString(PREF_DETAILED_MODEL, bestDetailed)
+                        ?.apply()
+                    Log.i(TAG, "Warm-up selected fastest available model: $bestFast")
+                }
+                isConnectionWarmedUp = true
+                return@withContext
+            }
+
+            val request = Request.Builder()
+                .url("https://generativelanguage.googleapis.com/")
+                .head()
+                .build()
+            httpClient.newCall(request).execute().use { it.body?.close() }
+            isConnectionWarmedUp = true
+        } catch (_: Exception) {
+            isConnectionWarmedUp = true
+        }
+    }
 
     // Securely decoded fallback key to prevent GitHub Secret Scanning / Push Protection blocks
     private val FALLBACK_API_KEY: String by lazy {
@@ -69,8 +149,12 @@ object AssistIqService {
     fun setDynamicApiKey(key: String?) {
         val trimmed = key?.trim()
         if (!trimmed.isNullOrBlank() && !trimmed.contains("KOwyNVPN9oYBE8")) {
+            val keyChanged = dynamicApiKey != trimmed
             dynamicApiKey = trimmed
-            preferNonStreamingFallback = false
+            if (keyChanged) {
+                preferNonStreamingFallback = false
+                prefs?.edit()?.putBoolean(PREF_PREFER_DIRECT, false)?.apply()
+            }
             Log.i(TAG, "Dynamic Gemini API key updated successfully (len: ${trimmed.length})")
         }
     }
@@ -94,6 +178,13 @@ object AssistIqService {
                 msg.contains("502") || msg.contains("504") ||
                 msg.contains("overloaded", ignoreCase = true) ||
                 msg.contains("high demand", ignoreCase = true)
+    }
+
+    private fun isThinkingPayloadError(exception: Throwable?): Boolean {
+        val msg = exception?.message.orEmpty()
+        return msg.contains("thinkingConfig", ignoreCase = true) ||
+                msg.contains("thinkingBudget", ignoreCase = true) ||
+                msg.contains("thinking_budget", ignoreCase = true)
     }
 
     fun getEffectiveApiKey(): String {
@@ -142,6 +233,9 @@ object AssistIqService {
                     put("contents", contents)
                     put("generationConfig", JSONObject().apply {
                         put("maxOutputTokens", 8)
+                        if (modelName.startsWith("gemini-2.5")) {
+                            put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+                        }
                     })
                 }
                 val requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
@@ -169,12 +263,10 @@ object AssistIqService {
     }
 
     private val SYSTEM_INSTRUCTION = """
-        You are AssistIQ, a fast, student-friendly AI study assistant for Pakistani students (Classes 1–12, Matric, Inter/FSc/ICS/FA/ICom, FBISE, Punjab, Sindh, KPK, Balochistan Boards) on ON Study.
-        Guidelines:
-        - Give clear, direct, accurate answers without filler.
-        - Format with **Bold Headings** and concise bullet points (•).
-        - For numericals, use: Given, Formula, Step-by-Step Solution, Final Answer with SI units.
-        - Match the student's language: Roman Urdu if asked in Roman Urdu, English if asked in English, Urdu if asked in Urdu.
+        You are AssistIQ, a fast AI study tutor for Pakistani board students (Classes 1–12, Matric/Inter/FSc) on ON Study.
+        Be direct, accurate, and concise. Use **Bold Headings** and bullet points (•).
+        For numericals: Given, Formula, Step-by-Step Solution, Answer with SI units.
+        Reply in the student's language (Roman Urdu, English, or Urdu).
     """.trimIndent()
 
     data class ChatTurn(
@@ -183,9 +275,8 @@ object AssistIqService {
     )
 
     /**
-     * Streams AI response in real time via SSE with resilient non-streaming,
-     * backoff, and live model discovery fallbacks so transient 5xx spikes or
-     * endpoint quirks never block student answers.
+     * Streams AI response in real time via uncompressed SSE with zero-thinking latency in Fast mode.
+     * Falls back cleanly to direct generateContent (preserving thinkingBudget=0!) if SSE is unsupported.
      */
     suspend fun sendMessageStreaming(
         history: List<ChatTurn>,
@@ -202,8 +293,8 @@ object AssistIqService {
 
         val modelsToTry = buildModelOrder(detailedMode)
         var lastError: Throwable? = null
+        var triedDirectFallbackOnce = false
 
-        // Pass 1: Fast SSE streaming (unless prior call showed non-streaming is needed)
         if (!preferNonStreamingFallback) {
             for (modelName in modelsToTry) {
                 var emittedAny = false
@@ -220,7 +311,7 @@ object AssistIqService {
                     }
                 )
                 if (attempt.isSuccess) {
-                    cacheWorkingModel(modelName, detailedMode)
+                    cacheWorkingModel(modelName, detailedMode, preferDirect = false)
                     return@withContext attempt
                 }
 
@@ -230,36 +321,34 @@ object AssistIqService {
                 if (isAuthError(lastError) || (lastError?.message?.contains("rate limit", ignoreCase = true) == true)) {
                     break
                 }
-                clearCachedModelIfMatches(modelName, detailedMode)
 
-                // If SSE stream failed before producing output, immediately test standard generateContent on the same model
-                if (!emittedAny) {
+                if (!emittedAny && !triedDirectFallbackOnce) {
+                    triedDirectFallbackOnce = true
+                    val useThinkingConfig = !isThinkingPayloadError(lastError)
                     val directAttempt = executeRequest(
                         apiKey = apiKey,
                         modelName = modelName,
                         history = history,
                         userMessage = userMessage,
                         detailedMode = detailedMode,
-                        includeThinkingConfig = false
+                        includeThinkingConfig = useThinkingConfig
                     )
                     if (directAttempt.isSuccess) {
                         val reply = directAttempt.getOrNull().orEmpty()
-                        preferNonStreamingFallback = true
-                        cacheWorkingModel(modelName, detailedMode)
+                        cacheWorkingModel(modelName, detailedMode, preferDirect = true)
                         onPartialText(reply)
                         return@withContext directAttempt
                     }
                     lastError = directAttempt.exceptionOrNull() ?: lastError
-                    Log.w(TAG, "Direct fallback on $modelName failed: ${lastError?.message}")
                     if (isAuthError(lastError)) break
                 }
 
+                clearCachedModelIfMatches(modelName, detailedMode)
                 if (isTransientServerError(lastError)) {
-                    delay(450)
+                    delay(200)
                 }
             }
         } else {
-            // Pass 1 (Non-streaming fast mode when device/key prefers generateContent)
             for (modelName in modelsToTry) {
                 val directAttempt = executeRequest(
                     apiKey = apiKey,
@@ -267,41 +356,57 @@ object AssistIqService {
                     history = history,
                     userMessage = userMessage,
                     detailedMode = detailedMode,
-                    includeThinkingConfig = false
+                    includeThinkingConfig = true
                 )
                 if (directAttempt.isSuccess) {
                     val reply = directAttempt.getOrNull().orEmpty()
-                    cacheWorkingModel(modelName, detailedMode)
+                    cacheWorkingModel(modelName, detailedMode, preferDirect = true)
                     onPartialText(reply)
                     return@withContext directAttempt
                 }
                 lastError = directAttempt.exceptionOrNull()
+                if (isThinkingPayloadError(lastError)) {
+                    val noThinkAttempt = executeRequest(
+                        apiKey = apiKey,
+                        modelName = modelName,
+                        history = history,
+                        userMessage = userMessage,
+                        detailedMode = detailedMode,
+                        includeThinkingConfig = false
+                    )
+                    if (noThinkAttempt.isSuccess) {
+                        val reply = noThinkAttempt.getOrNull().orEmpty()
+                        cacheWorkingModel(modelName, detailedMode, preferDirect = true)
+                        onPartialText(reply)
+                        return@withContext noThinkAttempt
+                    }
+                }
                 if (isAuthError(lastError) || (lastError?.message?.contains("rate limit", ignoreCase = true) == true)) {
                     break
                 }
                 clearCachedModelIfMatches(modelName, detailedMode)
                 if (isTransientServerError(lastError)) {
-                    delay(450)
+                    delay(200)
                 }
             }
         }
 
-        // Pass 2: Dynamic model discovery if all known models failed with non-auth errors
+        // Dynamic model discovery safety net if all known models failed with non-auth errors
         if (!isAuthError(lastError)) {
             val discoveredModels = discoverAvailableFlashModels(apiKey)
                 .filterNot { modelsToTry.contains(it) }
-            for (modelName in discoveredModels.take(3)) {
+            for (modelName in discoveredModels.take(2)) {
                 val attempt = executeRequest(
                     apiKey = apiKey,
                     modelName = modelName,
                     history = history,
                     userMessage = userMessage,
                     detailedMode = detailedMode,
-                    includeThinkingConfig = false
+                    includeThinkingConfig = true
                 )
                 if (attempt.isSuccess) {
                     val reply = attempt.getOrNull().orEmpty()
-                    cacheWorkingModel(modelName, detailedMode)
+                    cacheWorkingModel(modelName, detailedMode, preferDirect = true)
                     onPartialText(reply)
                     return@withContext attempt
                 }
@@ -310,9 +415,9 @@ object AssistIqService {
             }
         }
 
-        // Pass 3: One final brief retry on top model if error was transient 5xx spike
+        // Brief retry on transient 5xx spike
         if (isTransientServerError(lastError)) {
-            delay(800)
+            delay(400)
             for (modelName in modelsToTry.take(2)) {
                 val retryAttempt = executeRequest(
                     apiKey = apiKey,
@@ -320,11 +425,11 @@ object AssistIqService {
                     history = history,
                     userMessage = userMessage,
                     detailedMode = detailedMode,
-                    includeThinkingConfig = false
+                    includeThinkingConfig = true
                 )
                 if (retryAttempt.isSuccess) {
                     val reply = retryAttempt.getOrNull().orEmpty()
-                    cacheWorkingModel(modelName, detailedMode)
+                    cacheWorkingModel(modelName, detailedMode, preferDirect = true)
                     onPartialText(reply)
                     return@withContext retryAttempt
                 }
@@ -348,19 +453,30 @@ object AssistIqService {
         onPartialText = {}
     )
 
-    private fun cacheWorkingModel(modelName: String, detailedMode: Boolean) {
+    private fun cacheWorkingModel(modelName: String, detailedMode: Boolean, preferDirect: Boolean) {
+        preferNonStreamingFallback = preferDirect
         if (detailedMode) {
             cachedWorkingModelDetailed = modelName
+            prefs?.edit()
+                ?.putString(PREF_DETAILED_MODEL, modelName)
+                ?.putBoolean(PREF_PREFER_DIRECT, preferDirect)
+                ?.apply()
         } else {
             cachedWorkingModelFast = modelName
+            prefs?.edit()
+                ?.putString(PREF_FAST_MODEL, modelName)
+                ?.putBoolean(PREF_PREFER_DIRECT, preferDirect)
+                ?.apply()
         }
     }
 
     private fun clearCachedModelIfMatches(modelName: String, detailedMode: Boolean) {
         if (detailedMode && cachedWorkingModelDetailed == modelName) {
             cachedWorkingModelDetailed = null
+            prefs?.edit()?.remove(PREF_DETAILED_MODEL)?.apply()
         } else if (!detailedMode && cachedWorkingModelFast == modelName) {
             cachedWorkingModelFast = null
+            prefs?.edit()?.remove(PREF_FAST_MODEL)?.apply()
         }
     }
 
@@ -386,7 +502,7 @@ object AssistIqService {
                 val found = mutableListOf<String>()
                 for (i in 0 until models.length()) {
                     val m = models.getJSONObject(i)
-                    val fullName = m.optString("name", "") // e.g. "models/gemini-2.5-flash"
+                    val fullName = m.optString("name", "")
                     val shortName = fullName.removePrefix("models/")
                     val methods = m.optJSONArray("supportedGenerationMethods")?.toString().orEmpty()
                     if (methods.contains("generateContent") &&
@@ -415,7 +531,6 @@ object AssistIqService {
     ): JSONObject {
         val contentsArray = JSONArray()
 
-        // Normalize history: keep recent turns, merge consecutive identical roles, and avoid trailing user turn
         val normalized = mutableListOf<ChatTurn>()
         for (turn in history.filter { it.text.isNotBlank() }.takeLast(8)) {
             if (normalized.isNotEmpty() && normalized.last().role == turn.role) {
@@ -425,7 +540,6 @@ object AssistIqService {
                 normalized.add(turn)
             }
         }
-        // Remove leading non-user turn and any trailing user turn before appending the current userMessage
         while (normalized.isNotEmpty() && normalized.first().role != "user") {
             normalized.removeAt(0)
         }
@@ -457,8 +571,7 @@ object AssistIqService {
 
         val generationConfigObj = JSONObject().apply {
             put("temperature", if (detailedMode) 0.5 else 0.7)
-            put("maxOutputTokens", if (detailedMode) 2048 else 1200)
-            // Disable heavy internal thinking in Fast mode on 2.5 models for instant TTFT
+            put("maxOutputTokens", if (detailedMode) 1800 else 750)
             if (includeThinkingConfig && modelName.startsWith("gemini-2.5")) {
                 val budget = if (detailedMode) 1024 else 0
                 put("thinkingConfig", JSONObject().put("thinkingBudget", budget))
@@ -493,13 +606,16 @@ object AssistIqService {
             val mediaType = "application/json; charset=utf-8".toMediaType()
             val requestBody = payload.toString().toRequestBody(mediaType)
 
+            // Accept-Encoding: identity prevents OkHttp gzip compression from buffering SSE chunks!
             val request = Request.Builder()
                 .url(url)
                 .addHeader("Accept", "text/event-stream")
+                .addHeader("Accept-Encoding", "identity")
                 .post(requestBody)
                 .build()
 
             httpClient.newCall(request).execute().use { response ->
+                isConnectionWarmedUp = true
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string().orEmpty()
                     return Result.failure(IOException(parseCleanError(response.code, response.message, errorBody)))
@@ -584,6 +700,7 @@ object AssistIqService {
                 .build()
 
             httpClient.newCall(request).execute().use { response ->
+                isConnectionWarmedUp = true
                 val responseString = response.body?.string().orEmpty()
 
                 if (!response.isSuccessful) {
